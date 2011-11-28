@@ -1,7 +1,7 @@
 # Makefile for WinxedXlib module
 
 SRCDIR   = src/
-INCLUDEDIR = include/
+INCLUDEDIR = ./
 PIRDIR  = pir/
 BUILDDIR = build/
 
