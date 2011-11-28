@@ -1,0 +1,62 @@
+#! winxed
+# (C) 2011 Julián Albo
+
+/*
+= head1 NAME
+
+Setup for Guitor
+
+=head1 DESCRIPTION
+
+Setup program for Guitor using parrot distutils.
+
+=head1 USAGE
+
+Handle with care.
+
+=cut
+*/
+
+$load 'Getopt/Obj.pbc';
+$load 'distutils.pbc';
+
+//**********************************************************************
+
+function main(argv)
+{
+    string progname = argv.shift();
+
+    var data =
+//BEGIN_JSON_SETUP
+{
+    "name"             : "Guitor",
+    "version"          : "0.0.0",
+
+    "abstract"         : "GUI contructor",
+    "description"      : "A winxed module for building GUI using Xlib",
+    "keywords" : [
+        "Xlib", "winxed"
+    ],
+
+    "copyright_holder" : "Julián Albo",
+    "license_type"     : "Artistic License 2.0",
+    "license_uri"      : "http://www.perlfoundation.org/artistic_license_2_0",
+
+    "pir_winxed" : {
+        "pir/Guitor.pir"    : "src/Guitor.winxed",
+        "pir/GuitorNci.pir" : "src/GuitorNci.winxed"
+    },
+    "pbc_pir" : {
+        "build/Guitor.pbc"    : "pir/Guitor.pir",
+        "build/GuitorNci.pbc" : "pir/GuitorNci.pir"
+    },
+    "inst_inc" : [ "Guitor.winxhead", "GuitorConstants.winxhead" ],
+    "inst_lib" : [ "build/Guitor.pbc", "build/GuitorNci.pbc" ]
+}
+//END_JSON_SETUP
+    ;
+
+    setup(argv:[flat], data:[flat,named]);
+}
+
+// End
