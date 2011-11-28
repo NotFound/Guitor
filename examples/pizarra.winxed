@@ -75,14 +75,26 @@ class ColorSelector : ChildWindow
 
 //**********************************************************************
 
-class Line
+class Thing
 {
     var colorspec;
+    function Thing(string colorspec)
+    {
+        self.colorspec = colorspec;
+    }
+    function setforeground(drawable)
+    {
+        drawable.SetForeground(self.colorspec);
+    }
+}
+
+class Line : Thing
+{
     var xcoord;
     var ycoord;
     function Line(string colorspec)
     {
-        self.colorspec = colorspec;
+        self.Thing(colorspec);
         int x[];
         int y[];
         self.xcoord = x;
@@ -98,7 +110,7 @@ class Line
         var x = self.xcoord;
         var y = self.ycoord;
         int n = elements(x) - 1;
-        drawable.SetForeground(self.colorspec);
+        self.setforeground(drawable);
         if (n == 0)
             drawable.DrawPoint(x[0], y[0]);
         else
@@ -107,23 +119,93 @@ class Line
     }
 }
 
+class BaseRectangle : Thing
+{
+    var x0;
+    var y0;
+    var x1;
+    var y1;
+    function BaseRectangle(string colorspec, int x0, int y0, int x1, int y1)
+    {
+        self.Thing(colorspec);
+        if (x0 < x1) {
+            self.x0 = x0;
+            self.x1 = x1;
+        }
+        else {
+            self.x0 = x1;
+            self.x1 = x0;
+        }
+        if (y0 < y1) {
+            self.y0 = y0;
+            self.y1 = y1;
+        }
+        else {
+            self.y0 = y1;
+            self.y1 = y0;
+        }
+    }
+}
+
+class Rectangle : BaseRectangle
+{
+    function Rectangle(string colorspec, int x0, int y0, int x1, int y1)
+    {
+        self.BaseRectangle(colorspec, x0, y0, x1, y1);
+    }
+    function draw(drawable)
+    {
+        self.setforeground(drawable);
+        int x0 = self.x0;
+        int x1 = self.x1;
+        int y0 = self.y0;
+        int y1 = self.y1;
+        drawable.DrawRectangle(x0, y0, x1 - x0, y1 - y0);
+    }
+}
+
+class FillRectangle : BaseRectangle
+{
+    function FillRectangle(string colorspec, int x0, int y0, int x1, int y1)
+    {
+        self.BaseRectangle(colorspec, x0, y0, x1, y1);
+    }
+    function draw(drawable)
+    {
+        self.setforeground(drawable);
+        int x0 = self.x0;
+        int x1 = self.x1;
+        int y0 = self.y0;
+        int y1 = self.y1;
+        drawable.FillRectangle(x0, y0, x1 - x0, y1 - y0);
+    }
+}
+
 //**********************************************************************
 
 class Pizarra : TopLevelWindow
 {
+    const int LINE = 0, RECTANGLE = 1, FILLRECT = 2;
+
+    var mode;
     var listline;
     var line;
     var pressed;
+    var initx;
+    var inity;
     var oldx;
     var oldy;
     var colorspec;
     function Pizarra(controller)
     {
+        self.mode = LINE;
         self.listline = [];
         string title = "pizarra";
         self.TopLevelWindow(controller, title, 0, 0, 600, 400);
         controller.created(self);
         self.pressed = false;
+        self.initx = 0;
+        self.inity = 0;
         self.oldx = 0;
         self.oldy = 0;
         self.colorspec = "black";
@@ -166,6 +248,15 @@ class Pizarra : TopLevelWindow
             int y = event.y();
             self.opencolorsel(x, y);
             break;
+          case "l":
+            self.mode =: LINE;
+            break;
+          case "r":
+            self.mode =: RECTANGLE;
+            break;
+          case "f":
+            self.mode =: FILLRECT;
+            break;
           case "BackSpace":
             self.pressed =: false;
             if (self.line != null)
@@ -186,13 +277,44 @@ class Pizarra : TopLevelWindow
         self.pressed = button;
         int oldx = event.x();
         int oldy = event.y();
+        self.initx =: oldx;
+        self.inity =: oldy;
         self.oldx =: oldx;
         self.oldy =: oldy;
+        switch (self.mode) {
+          case RECTANGLE:
+          case FILLRECT:
+            self.SetFunction(0xa);
+            self.SetLineAttributes(0, 1, 0, 0);
+            self.SetSubwindowMode(1);
+            break;
+        }
     }
     function onButtonRelease(event)
     {
+        if (! self.pressed)
+            return;
         self.pressed = false;
         self.line = null;
+        int initx = self.initx;
+        int inity = self.inity;
+        int oldx = self.oldx;
+        int oldy = self.oldy;
+        string colorspec = self.colorspec;
+        switch (self.mode) {
+          case RECTANGLE:
+          case FILLRECT:
+            self.hintrectangle(initx, inity, oldx, oldy);
+            self.SetFunction(0x3);
+            self.SetLineAttributes(0, 0, 0, 0);
+            self.SetSubwindowMode(0);
+            var r = self.mode == RECTANGLE ?
+                new Rectangle(colorspec, initx, inity, oldx, oldy) :
+                new FillRectangle(colorspec, initx, inity, oldx, oldy);
+            self.listline.push(r);
+            r.draw(self);
+            break;
+        }
     }
     function onMotion(event)
     {
@@ -202,17 +324,26 @@ class Pizarra : TopLevelWindow
             int oldx = self.oldx;
             int oldy = self.oldy;
             if (x != oldx || y != oldy) {
-                var line = self.line;
-                if (line == null) {
-                    self.line = line = new Line(self.colorspec);
-                    self.listline.push(line);
-                    line.push(oldx, oldy);
+                switch (self.mode) {
+                  case LINE:
+                    var line = self.line;
+                    if (line == null) {
+                        self.line = line = new Line(self.colorspec);
+                        self.listline.push(line);
+                        line.push(oldx, oldy);
+                    }
+                    line.push(x, y);
+                    line.draw(self);
+                    break;
+                  case RECTANGLE:
+                  case FILLRECT:
+                    self.hintrectangle(self.initx, self.inity, oldx, oldy);
+                    self.hintrectangle(self.initx, self.inity, x, y);
+                    break;
                 }
-                line.push(x, y);
-                line.draw(self);
-                self.oldx =: x;
-                self.oldy =: y;
             }
+            self.oldx =: x;
+            self.oldy =: y;
         }
     }
     function onClientMessage(event)
@@ -221,6 +352,24 @@ class Pizarra : TopLevelWindow
         self.Destroy();
     }
 
+    function hintrectangle(int x0, int y0, int x1, int y1)
+    {
+        int x = x0;
+        int y = y0;
+        int width = x1 - x;
+        int height = y1 - y;
+        if (width && height) {
+            if (x > x1) {
+                x = x1;
+                width = -width; 
+            }
+            if (y > y1) {
+                y = y1;
+                height = -height;
+            }
+            self.DrawRectangle(x, y, width, height);
+        }
+    }
     function opencolorsel(int x, int y)
     {
         var colorsel = new ColorSelector(self, x, y);
