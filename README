@@ -4,4 +4,4 @@ Guitor is a parrot module for building GUI using Xlib.
 
 Use the Makefile or setup winxed
 
-Under development. Tested only with Linux amd64.
+Under development. Tested only with Linux amd64 and i386.
