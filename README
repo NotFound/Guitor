@@ -2,6 +2,6 @@ Guitor (C) 2011 Julián Albo
 
 Guitor is a parrot module for building GUI using Xlib.
 
-Use the Makefile or seetup winxed
+Use the Makefile or setup winxed
 
 Under development. Tested only with Linux amd64.
