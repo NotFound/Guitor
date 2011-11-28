@@ -1,0 +1,37 @@
+// GuitorConstants.winxhead
+
+// Declarations for Guitor
+// Xlib  constants commonly used
+
+namespace Guitor
+{
+
+namespace Events
+{
+
+// Event selection masks
+const int KeyPressMask        = 0x00000001;
+const int KeyReleaseMask      = 0x00000002;
+const int ButtonPressMask     = 0x00000004;
+const int ButtonReleaseMask   = 0x00000008;
+const int EnterWindowMask     = 0x00000010;
+const int LeaveWindowMask     = 0x00000020;
+const int PointerMotionMask   = 0x00000040;
+const int ExposureMask        = 0x00008000;
+const int StructureNotifyMask = 0x00020000;
+// Event types
+const int KeyPress        = 2;
+const int KeyRelease      = 3;
+const int ButtonPress     = 4;
+const int ButtonRelease   = 5;
+const int MotionNotify    = 6;
+const int Expose          = 12;
+const int DestroyNotify   = 17;
+const int ConfigureNotify = 22;
+const int ClientMessage   = 33;
+
+}
+
+}
+
+// End

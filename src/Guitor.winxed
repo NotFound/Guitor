@@ -1,0 +1,759 @@
+#! winxed
+
+// Guitor.winxed
+
+// Xlib module via parrot NCI.
+
+$include "GuitorConstants.winxhead";
+
+$load "GuitorNci.pbc";
+
+namespace Guitor
+{
+
+$include_const "datatypes.pasm";
+
+//**************************************************************
+//                 Internal helper functions
+//**************************************************************
+
+namespace Xlib__private
+{
+
+extern function str_to_cstring;
+extern function string_from_nci;
+extern function getfun;
+extern function geteventpad;
+extern function getanyview;
+extern function getstructureview;
+extern function getexposeview;
+extern function getmotionview;
+extern function getbuttonview;
+extern function getkeyview;
+extern function getxcolorview;
+extern function getatomview;
+extern function getview;
+
+extern function newAtomlist;
+
+} // namespace Xlib__private
+
+using namespace Xlib__private;
+using namespace Events;
+
+
+//**************************************************************
+//                       Display
+//**************************************************************
+
+class Display
+{
+    var xdisplay;
+    var default_font;
+
+    function Display(string displayname[optional])
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var d;
+        if (displayname == null)
+            displayname = "";
+        d = str_to_cstring(displayname);
+        self.xdisplay = getfun("XOpenDisplay")(d);
+        getfun("setlocale")(0, str_to_cstring(""));
+        getfun("XSetLocaleModifiers")(str_to_cstring(""));
+    }
+    function Close()
+    {
+        __DEBUG__ && cry("Display.Close");
+        getfun("XCloseDisplay")(self.xdisplay);
+        self.xdisplay = null;
+        __DEBUG__ && cry("closed");
+    }
+    function DefaultScreen()
+    {
+        int scrnum = getfun("XDefaultScreen")(self.xdisplay);
+        return scrnum;
+    }
+    function DefaultDepth(int scrnum)
+    {
+        int depth = getfun("XDefaultDepth")(self.xdisplay, scrnum);
+        return depth;
+    }
+    function BlackPixel(int scrnum)
+    {
+        return getfun("XBlackPixel")(self.xdisplay, scrnum);
+    }
+    function WhitePixel(int scrnum)
+    {
+        return getfun("XWhitePixel")(self.xdisplay, scrnum);
+    }
+    function KeycodeToKeysym(int keycode)
+    {
+        return getfun("XKeycodeToKeysym")(self.xdisplay, keycode, 0);
+    }
+    function KeysymToKeycode(int keysym)
+    {
+        return getfun("XKeysymToKeycode")(self.xdisplay, keysym);
+    }
+    function StringToKeysym(string keystring)
+    {
+        return getfun("XStringToKeysym")(str_to_cstring(keystring));
+    }
+    function KeysymToString(int keysym)
+    {
+        var fn = getfun("XKeysymToString");
+        return string_from_nci(fn(keysym));
+    }
+    function LookupString(event)
+    {
+        const int BUFSIZE = 32;
+        var fun = getfun("XLookupString");
+        var buffer = new ["ByteBuffer"];
+        buffer =: BUFSIZE;
+        int len = fun(event.eventdata, buffer, BUFSIZE, null, null);
+        string str;
+        if (len > 0) {
+            buffer =: len;
+            str = buffer.get_string("utf8");
+        }
+        return str;
+    }
+    function InternAtom(string name, int only_if_exists[optional])
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var pname = str_to_cstring(name);
+        int atom = getfun("XInternAtom")(self.xdisplay, pname, only_if_exists);
+        return atom;
+    }
+    function GetAtomName(int atom)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var fn = dlfunc(getlib(), "XGetAtomName", "tpi");
+        string name = fn(self.xdisplay, atom);
+        return name;
+    }
+    function AtomlistFromStrings(var atomnames)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        int natoms = elements(atomnames);
+        var aux = newAtomlist(natoms);
+        var ast = getatomview();
+        for (int i = 0; i < natoms; ++i)
+            ast[aux, i, 0] = int(self.InternAtom(atomnames[i]));
+        return aux;
+    }
+    function DefaultGC()
+    {
+        var fn = getfun("XDefaultGC");
+        return fn(self.xdisplay, self.DefaultScreen());
+    }
+    function _RootWindow(int scrnum)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        return getfun("XRootWindow")(self.xdisplay, scrnum);
+    }
+    function RootWindow(int scrnum)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var fn = getfun("XRootWindow");
+        var rootw = new Window;
+        rootw.display = self;
+        rootw.xdrawable = fn(self.xdisplay, scrnum);
+        return rootw;
+    }
+    function CreateSimpleWindow(var parent,
+        int x, int y, int width, int height,
+        int border_width, int border, int background)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var fn = getfun("XCreateSimpleWindow");
+        var w = new Window;
+        w.display = self;
+        w.xdrawable = fn(self.xdisplay, parent.xdrawable,
+                x, y, width, height, border_width, border, background);
+        return w;
+    }
+    function CreateSimpleWindow(int x, int y, int width, int height)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var fn = getfun("XCreateSimpleWindow");
+        var xw = fn(self.xdisplay, self._RootWindow(0), x, y, width, height,
+                0, self.BlackPixel(0), self.WhitePixel(0));
+        return xw;
+    }
+    function CreateSimpleChildWindow(parent, x, y, width, height,
+            int border_width, int border_color, int background)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var fn = getfun("XCreateSimpleWindow");
+        var xw = fn(self.xdisplay, parent.xdrawable, x, y, width, height,
+                border_width, border_color, background);
+        return xw;
+    }
+    function NextEvent(var event)
+    {
+        using namespace Events;
+        var fn = getfun("XNextEvent");
+        event._get(self.xdisplay, fn);
+    }
+    function SetWMProtocols(drawable, names)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var atomlist = self.AtomlistFromStrings(names);
+        var fn = getfun("XSetWMProtocols");
+        fn(self.xdisplay, drawable.xdrawable, atomlist, elements(names));
+    }
+
+    function ParseColor(string spec)
+    {
+        var xdisplay = self.xdisplay;
+        var fn = getfun("XParseColor");
+        var colormap = getfun("XDefaultColormap")(xdisplay, 0);
+        var xcolorview = getxcolorview();
+        var xcolor = xcolorview.alloc();
+        int status = fn(xdisplay, colormap, str_to_cstring(spec), xcolor);
+        if (status) {
+            status = getfun("XAllocColor")(xdisplay, colormap, xcolor);
+            if (status) {
+                int pixel = xcolorview[xcolor, 0];
+                return pixel;
+            }
+        }
+        return null;
+    }
+    function setDefaultFont(string fontdesc)
+    {
+        var font = self.default_font;
+        if (font == null) {
+            var ptr = new ["StructView"]( [DATATYPE_STRUCT, 1, DATATYPE_PTR ] );
+            var p1 = ptr.alloc();
+            var p2 = ptr.alloc();
+            var p3 = ptr.alloc();
+            font = getfun("XCreateFontSet")(self.xdisplay,
+                    str_to_cstring(fontdesc), p1, p2, p3);
+            if (font == null || ! font)
+                return false;
+        }
+        self.default_font = font;
+        return true;
+    }
+    function getDefaultFont()
+    {
+        var font = self.default_font;
+        if (font == null) {
+            self.setDefaultFont("-*-*-*-r-*-*-*-140-*");
+            font = self.default_font;
+        }
+        return font;
+    }
+}
+
+//**********************************************************************
+
+function DisplayName()
+{
+    var fn = getfun("XDisplayName");
+    return string_from_nci(fn(null));
+}
+
+function KeysymToString(int keysym)
+{
+    var fn = getfun("XKeysymToString");
+    return string_from_nci(fn(keysym));
+}
+
+function StringToKeysym(string keystring)
+{
+    var fn = getfun("XStringToKeysym");
+    var pkey = str_to_cstring(keystring);
+    int k = fn(pkey);
+    return k;
+}
+
+function OpenDisplay(string displayname[optional])
+{
+    return new Display(displayname);
+}
+
+//**************************************************************
+//                        Event
+//**************************************************************
+
+class Event
+{
+    var eventdata;
+    var anyview;
+    var evtype;
+    var evx;
+    var evy;
+    var evx_root;
+    var evy_root;
+    var evwidth;
+    var evheight;
+    var evkeycode;
+    var evbutton;
+    function Event()
+    {
+        self.eventdata = geteventpad().alloc();
+        self.anyview = getanyview();
+        self.evtype = 0;
+        self.evx = 0;
+        self.evy = 0;
+        self.evx_root = 0;
+        self.evy_root = 0;
+        self.evwidth = 0;
+        self.evheight = 0;
+        self.evkeycode = 0;
+        self.evbutton = 0;
+    }
+    function _get(xdisplay, fn)
+    {
+        var eventdata = self.eventdata;
+        fn(xdisplay, eventdata);
+        var view = self.anyview;
+        int type = view[self.eventdata, 0];
+        self.evtype =: type;
+        int x = 0, y = 0, x_root = 0, y_root = 0,
+                width = 0, height = 0,
+                keycode = 0, button = 0;
+        switch (type) {
+          case ConfigureNotify:
+            view   = getstructureview();
+            x      = view[eventdata, 6];
+            y      = view[eventdata, 7];
+            width  = view[eventdata, 8];
+            height = view[eventdata, 9];
+            break;
+          case Expose:
+            view   = getexposeview();
+            x      = view[eventdata, 5];
+            y      = view[eventdata, 6];
+            width  = view[eventdata, 7];
+            height = view[eventdata, 8];
+            break;
+          case KeyPress:
+            view    = getkeyview();
+            x       = view[eventdata, 8];
+            y       = view[eventdata, 9];
+            x_root  = view[eventdata, 10];
+            y_root  = view[eventdata, 11];
+            keycode = view[eventdata, 13];
+            break;
+          case ButtonPress:
+          case ButtonRelease:
+            view   = getbuttonview();
+            x      = view[eventdata, 8];
+            y      = view[eventdata, 9];
+            x_root = view[eventdata, 10];
+            y_root = view[eventdata, 11];
+            button = view[eventdata, 13];
+            break;
+          case MotionNotify:
+            view   = getmotionview();
+            x      = view[eventdata, 8];
+            y      = view[eventdata, 9];
+            x_root = view[eventdata, 10];
+            y_root = view[eventdata, 11];
+            break;
+        }
+        self.evx =: x;
+        self.evy =: y;
+        self.evx_root =: x_root;
+        self.evy_root =: y_root;
+        self.evwidth =: width;
+        self.evheight =: height;
+        self.evkeycode =: keycode;
+        self.evbutton =: button;
+    }
+    function type()
+    {
+        return int(self.evtype);
+    }
+    function serial()
+    {
+        int t = self.anyview[self.eventdata, 1];
+        return t;
+    }
+    function window()
+    {
+        int t = self.anyview[self.eventdata, 4];
+        return t;
+    }
+    function time()
+    {
+        int t = self.anyview[self.eventdata, 7];
+        return t;
+    }
+    function x()
+    {
+        return int(self.evx);
+    }
+    function y()
+    {
+        return int(self.evy);
+    }
+    function x_root()
+    {
+        return int(self.evx_root);
+    }
+    function y_root()
+    {
+        return int(self.evy_root);
+    }
+    function width()
+    {
+        return int(self.evwidth);
+    }
+    function height()
+    {
+        return int(self.evheight);
+    }
+    function keycode()
+    {
+        return int(self.evkeycode);
+    }
+    function button()
+    {
+        return int(self.evbutton);
+    }
+}
+
+//**************************************************************
+//                      Drawable
+//**************************************************************
+
+class Drawable
+{
+    var display;
+    var xdrawable;
+    var gc;
+    var font;
+    function getgc()
+    {
+        var gc = self.gc;
+        if (gc == null)
+            gc = self.display.DefaultGC();
+        return gc;
+    }
+    function owngc()
+    {
+        var gc = self.gc;
+        if (gc == null)
+            self.gc = gc = getfun("XCreateGC")
+                    (self.display.xdisplay, self.xdrawable, null, 0);
+        return gc;
+    }
+    function SetForeground(string spec)
+    {
+        var gc = self.owngc();
+	int pixel = self.display.ParseColor(spec);
+        getfun("XSetForeground")(self.display.xdisplay, gc, pixel);
+    }
+    function DrawPoint(int x, int y)
+    {
+        __DEBUG__ && cry(__FUNCTION__, self.xdrawable);
+        var gc = self.getgc();
+        getfun("XDrawPoint")(self.display.xdisplay, self.xdrawable, gc, x, y);
+        __DEBUG__ && cry(__FUNCTION__ + " end");
+    }
+    function DrawLine(int x1, int y1, int x2, int y2)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var gc = self.getgc();
+        getfun("XDrawLine")(self.display.xdisplay, self.xdrawable,
+                gc, x1, y1, x2, y2);
+    }
+    function DrawRectangle(int x, int y, int width, int height)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var gc = self.getgc();
+        getfun("XDrawRectangle")(self.display.xdisplay, self.xdrawable,
+                gc, x, y, width, height);
+    }
+    function FillRectangle(int x, int y, int width, int height)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var gc = self.getgc();
+        getfun("XFillRectangle")(self.display.xdisplay, self.xdrawable,
+                gc, x, y, width, height);
+    }
+    function SetFunction(int func)
+    {
+        var gc = self.owngc();
+        getfun("XSetFunction")(self.display.xdisplay, gc, func);
+    }
+    function SetLineAttributes(int width, int style, int cap, int join)
+    {
+        var gc = self.owngc();
+        getfun("XSetLineAttributes")(self.display.xdisplay, gc, width, style, cap, join);
+    }
+    function SetSubwindowMode(int mode)
+    {
+        var gc = self.owngc();
+        getfun("XSetSubwindowMode")(self.display.xdisplay, gc, mode);
+    }
+    function DrawString(int x, int y, string str)
+    {
+        var display = self.display;
+        var gc = self.owngc();
+        var font = self.font;
+        if (font == null) {
+            font = display.getDefaultFont();
+            self.font = font;
+        }
+        var xdisplay = display.xdisplay;
+        var xdrawable = self.xdrawable;
+        var pstr = str_to_cstring(str);
+        var len = bytelength(str);
+        if (font != null)
+            getfun("XmbDrawString")(xdisplay, xdrawable,
+                    font, gc, x, y, pstr, len);
+        else
+            getfun("XDrawString")(xdisplay, xdrawable,
+                    gc, x, y, pstr, len);
+    }
+}
+
+//**************************************************************
+//                      Window
+//**************************************************************
+
+class Window : Drawable
+{
+    function Destroy()
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        getfun("XDestroyWindow")(self.display.xdisplay, self.xdrawable);
+    }
+    function SelectInput(int eventmask)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        getfun("XSelectInput")(self.display.xdisplay, self.xdrawable, eventmask);
+    }
+    function StoreName(string name)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        getfun("XStoreName")(self.display.xdisplay, self.xdrawable,
+                str_to_cstring(name));
+    }
+    function SetWMProtocols(names)
+    {
+        self.display.SetWMProtocols(self, names);
+    }
+    function Map()
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        getfun("XMapWindow")(self.display.xdisplay, self.xdrawable);
+    }
+    function Unmap()
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        getfun("XUnmapWindow")(self.display.xdisplay, self.xdrawable);
+    }
+    function ClearArea(int x, int y, int width, int height, int exposures)
+    {
+        getfun("XClearArea")(self.display.xdisplay, self.xdrawable,
+                x, y, width, height, exposures);
+    }
+    function MoveWindow(int x, int y)
+    {
+        getfun("XMoveWindow")(self.display.xdisplay, self.xdrawable, x, y);
+    }
+    function RaiseWindow()
+    {
+        getfun("XRaiseWindow")(self.display.xdisplay, self.xdrawable);
+    }
+}
+
+//**************************************************************
+//           Higher level
+//**************************************************************
+
+class Controller
+{
+    var display;
+    var regwindow;
+    var running;
+    function Controller()
+    {
+        self.Controller(new Display());
+    }
+    function Controller(display)
+    {
+        self.display = display;
+        self.regwindow = {};
+    }
+    function Close()
+    {
+        self.display.Close();
+    }
+    function setDefaultFont(string fontdesc)
+    {
+        self.display.setDefaultFont(fontdesc);
+    }
+    function register(window)
+    {
+        self.regwindow[window.xdrawable] = window;
+    }
+    function unregister(window)
+    {
+        var regwindow = self.regwindow;
+        if (exists regwindow[window.xdrawable])
+            delete regwindow[window.xdrawable];
+    }
+    function handleEvent(event)
+    {
+        using namespace Events;
+        int w = event.window();
+        var window = self.regwindow[w];
+        if (window != null)
+            window.handle(event);
+    }
+    function MainLoop()
+    {
+        self.running = true;
+        var display = self.display;
+        var event = new Event();
+        do {
+            display.NextEvent(event);
+            self.handleEvent(event);
+        } while (self.running);
+    }
+    function Quit()
+    {
+        self.running = false;
+    }
+}
+
+class EventHandler
+{
+    var window;
+    var selectmask;
+    var handlers;
+    function EventHandler(window, mask)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        self.window = window;
+        self.selectmask = mask;
+        self.handlers = [];
+    }
+    function i_add [vtable] (newhandler)
+    {
+        push(self.handlers, newhandler);
+        self.window.addmask(self.selectmask);
+    }
+    function handle(event)
+    {
+        for (var handler in self.handlers)
+            handler(event);
+    }
+}
+
+class ListenerWindow : Window
+{
+    var controller;
+    var mask;
+    var OnConfigure;
+    var OnExpose;
+    var OnKeyPress;
+    var OnButtonPress;
+    var OnButtonRelease;
+    var OnMotion;
+    var OnDestroy;
+    var OnClientMessage;
+    function ListenerWindow(controller)
+    {
+        self.mask = 0;
+        self.OnConfigure = new EventHandler(self, StructureNotifyMask);
+        self.OnExpose = new EventHandler(self, ExposureMask);
+        self.OnKeyPress = new EventHandler(self, KeyPressMask);
+        self.OnButtonPress = new EventHandler(self, ButtonPressMask);
+        self.OnButtonRelease = new EventHandler(self, ButtonReleaseMask);
+        self.OnMotion = new EventHandler(self, PointerMotionMask);
+        self.OnDestroy = new EventHandler(self, StructureNotifyMask);
+        self.OnClientMessage = new EventHandler(self, 0);
+        self.controller = controller;
+        controller.register(self);
+    }
+    function addmask(int newmask)
+    {
+        int mask = self.mask;
+        newmask = newmask | mask;
+        if (newmask != mask) {
+            self.mask =: newmask;
+            self.SelectInput(newmask);
+        }
+    }
+    function handle(event)
+    {
+        var handler;
+        switch (event.type()) {
+          case ConfigureNotify:
+            handler = self.OnConfigure;
+            break;
+          case Expose:
+            handler = self.OnExpose;
+            break;
+          case KeyPress:
+            handler = self.OnKeyPress;
+            break;
+          case ButtonPress:
+            handler = self.OnButtonPress;
+            break;
+          case ButtonRelease:
+            handler = self.OnButtonRelease;
+            break;
+          case MotionNotify:
+            handler = self.OnMotion;
+            break;
+          case DestroyNotify:
+            handler = self.OnDestroy;
+            break;
+          case ClientMessage:
+            handler = self.OnClientMessage;
+            break;
+        }
+        if (handler != null)
+            handler.handle(event);
+    }
+}
+
+class TopLevelWindow : ListenerWindow
+{
+    var controller;
+    function TopLevelWindow(controller, string title,
+            int x, int y, int width, int height)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var display = controller.display;
+        self.display = display;
+        self.xdrawable = display.CreateSimpleWindow(x, y, width, height);
+        self.StoreName(title);
+        self.ListenerWindow(controller);
+    }
+}
+
+class ChildWindow : ListenerWindow
+{
+    function ChildWindow(parent, int x, int y, int width, int height,
+            style[optional])
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var display = parent.controller.display;
+        self.display = display;
+        int border_width = 0;
+        int border_color = 0;
+        int background = display.WhitePixel(0);
+        if (style != null) {
+            if (exists style["background_color"])
+                background = style["background_color"];
+        }
+        self.xdrawable = display.CreateSimpleChildWindow(parent,
+                x, y, width, height, border_width, border_color, background);
+        self.ListenerWindow(parent.controller);
+    }
+}
+
+} // namespace Guitor
+
+// End.

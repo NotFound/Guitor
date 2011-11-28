@@ -1,0 +1,19 @@
+// Guitor.winxhead
+
+// Declarations for Guitor
+
+$include "GuitorConstants.winxhead";
+
+namespace Guitor
+{
+
+class Display;
+class Event;
+
+class Controller;
+class TopLevelWindow;
+class ChildWindow;
+
+}
+
+// End

@@ -1,0 +1,439 @@
+#! winxed
+
+// graph
+
+//**************************************************************
+
+$load "Guitor.pbc";
+
+$include "Guitor.winxhead";
+
+using namespace Guitor;
+using namespace Guitor.Events;
+
+//**************************************************************
+
+class Graph : TopLevelWindow
+{
+    var funcs;
+    var x0;
+    var x1;
+    var y0;
+    var y1;
+    var width;
+    var height;
+    var pressed;
+    var xp0;
+    var yp0;
+    var xp1;
+    var yp1;
+    function Graph(controller, string expr, funcs, float x0, float x1, float y0, float y1)
+    {
+        self.pressed = false;
+        self.funcs = funcs;
+        self.x0 = x0;
+        self.x1 = x1;
+        self.y0 = y0;
+        self.y1 = y1;
+        int width = 800;
+        int height = 600;
+        self.width = width;
+        self.height = height;
+
+        self.TopLevelWindow(controller, "graph - " + expr, 0, 0, width, height);
+        self.OnClientMessage += function (event) { self.onClientMessage(event); };
+        self.OnConfigure += function (event) { self.onConfigure(event); };
+        self.OnExpose += function (event) { self.onExpose(event); };
+        self.OnKeyPress += function (event) { self.onKeyPress(event); };
+        self.OnButtonPress += function (event) { self.onButtonPress(event); };
+        self.OnButtonRelease += function (event) { self.onButtonRelease(event); };
+        self.OnMotion += function (event) { self.onMotion(event); };
+    }
+    function drawfun(fun)
+    {
+        float x0 = self.x0;
+        float x1 = self.x1;
+        float y0 = self.y0;
+        float y1 = self.y1;
+        int width = self.width;
+        int height = self.height;
+        int prev = false;
+        int i0, j0;
+        for (int i = 0; i < width; ++i) {
+            try {
+                float x = x0 + (float(i) / width) * (x1 - x0);
+                float y = fun(x);
+                int j = height - 1 - (y - y0) / (y1 - y0) * height;
+                int current = true;
+                if (j < 0 || j >= height) {
+                    current = false;
+                    if (prev) {
+                        j = j < 0 ? 0 : height - 1;
+                        self.DrawLine(i0, j0, i, j);
+                    }
+                }
+                else {
+                    if (prev)
+                        self.DrawLine(i0, j0, i, j);
+                    else
+                        self.DrawPoint(i, j);
+                }
+                prev = current;
+                i0 = i;
+                j0 = j;
+            }
+            catch () {
+                prev = false;
+            }
+        }
+    }
+    function onClientMessage(event)
+    {
+        self.Destroy();
+    }
+    function onConfigure(event)
+    {
+        self.width =: int(event.width());
+        self.height =: int(event.height());
+    }
+    function onExpose(event)
+    {
+        float x0 = self.x0;
+        float x1 = self.x1;
+        float y0 = self.y0;
+        float y1 = self.y1;
+        int width = self.width;
+        int height = self.height;
+        try {
+            int j = height + y0 * height / (y1 - y0);
+            if (j > 0 && j < height)
+                self.DrawLine(0, j, width, j);
+        }
+        catch () { }
+        try {
+            int i = -x0 * width / (x1 - x0);
+            if (i > 0 && i < width)
+                self.DrawLine(i, 0, i, height);
+        }
+        catch () { }
+
+        var funcs = self.funcs;
+        if (elements(funcs) == 1)
+            self.drawfun(funcs[0]);
+        else {
+            string colors[] = [ "black", "red", "blue", "green" ];
+            int ncolors = elements(colors);
+            int i = 0;
+            for (var fun in self.funcs) {
+                self.SetForeground(colors[i]);
+                i = (i + 1) % ncolors;
+                self.drawfun(fun);
+            }
+            self.SetForeground(colors[0]);
+        }
+    }
+    function onKeyPress(event)
+    {
+        var display = self.display;
+        float x0 = self.x0;
+        float x1 = self.x1;
+        float y0 = self.y0;
+        float y1 = self.y1;
+        float r;
+        int code = event.keycode();
+        string key = display.KeysymToString(display.KeycodeToKeysym(code));
+        switch (key) {
+          case "Escape":
+            self.Destroy();
+            break;
+          case "plus":
+            r = (x1 - x0) / 4;
+            x0 += r;
+            x1 -= r;
+            self.x0 =: x0;
+            self.x1 =: x1;
+            r = (y1 - y0) / 4;
+            y0 += r;
+            y1 -= r;
+            self.y0 =: y0;
+            self.y1 =: y1;
+            self.ClearArea(0, 0, self.width, self.height, 1);
+            break;
+          case "minus":
+            r = (x1 - x0) / 2;
+            x0 -= r;
+            x1 += r;
+            self.x0 =: x0;
+            self.x1 =: x1;
+            r = (y1 - y0) / 2;
+            y0 -= r;
+            y1 += r;
+            self.y0 =: y0;
+            self.y1 =: y1;
+            self.ClearArea(0, 0, self.width, self.height, 1);
+            break;
+          case "Left":
+            self.movehor(-4);
+            break;
+          case "Right":
+            self.movehor(4);
+            break;
+          case "Up":
+            self.movever(4);
+            break;
+          case "Down":
+            self.movever(-4);
+            break;
+        }
+    }
+    function onButtonPress(event)
+    {
+        int button = event.button();
+        switch (button) {
+          case 1:
+          case 3:
+            break;
+          case 4:
+            self.movever(4);
+            return;
+          case 5:
+            self.movever(-4);
+            return;
+          default:
+            return;
+        }
+        self.pressed =: button;
+        int x = event.x();
+        int y = event.y();
+        self.xp0 = x;
+        self.yp0 = y;
+        self.xp1 = x;
+        self.yp1 = y;
+        self.SetFunction(0xa);
+        self.SetLineAttributes(0, 1, 0, 0);
+        self.SetSubwindowMode(1);
+    }
+    function onButtonRelease(event)
+    {
+        int button = self.pressed;
+        if (! button)
+            return;
+        self.pressed =: false;
+        int xp0 = self.xp0;
+        int yp0 = self.yp0;
+        int nxp1 = self.xp1;
+        int nyp1 = self.yp1;
+        self.rectangle(xp0, yp0, nxp1, nyp1);
+        self.SetFunction(0x3);
+        self.SetLineAttributes(0, 0, 0, 0);
+        self.SetSubwindowMode(0);
+        int nxp0 = xp0;
+        if (nxp0 > nxp1) {
+            nxp0 = nxp1;
+            nxp1 = xp0;
+        }
+        int nyp0 = yp0;
+        if (nyp0 > nyp1) {
+            nyp0 = nyp1;
+            nyp1 = yp0;
+        }
+        float x0 = self.x0;
+        float x1 = self.x1;
+        float y0 = self.y0;
+        float y1 = self.y1;
+        int width = self.width;
+        int height = self.height;
+        if (nxp0 == nxp1 || nyp0 == nyp1) {
+            int i = self.xp1;
+            int j = self.yp1;
+            float x = x0 + (float(i) / width) * (x1 - x0);
+            float y = y0 + (float(height - j) / height) * (y1 - y0);
+            self.SetForeground("white");
+            self.FillRectangle(0, 0, 280, 36);
+            self.SetForeground("black");
+            self.DrawString(0, 16, "x: " + string(x));
+            self.DrawString(0, 32, "y: " + string(y));
+            return;
+        }
+        float xx0, xx1, yy0, yy1;
+        xx0 = x0 + (nxp0 / width) * (x1 - x0);
+        xx1 = x0 + (nxp1 / width) * (x1 - x0);
+        float yy = height -  nyp0;
+        yy1 = y0 + (yy / height) * (y1 - y0);
+        yy = height - nyp1;
+        yy0 = y0 + (yy / height) * (y1 - y0);
+        switch (button) {
+          case 1:
+            break;
+          case 3:
+            var t0 = x0 + (x0 - xx0) * (x1 - x0) / (xx1 - xx0);
+            var t1 = x0 + (x1 - xx0) * (x1 - x0) / (xx1 - xx0);
+            xx0 = t0;
+            xx1 = t1;
+            t0 = y0 + (y0 - yy0) * (y1 - y0) / (yy1 - yy0);
+            t1 = y0 + (y1 - yy0) * (y1 - y0) / (yy1 - yy0);
+            yy0 = t0;
+            yy1 = t1;
+            break;
+          default:
+            return;
+        }
+        self.x0 =: xx0;
+        self.x1 =: xx1;
+        self.y0 =: yy0;
+        self.y1 =: yy1;
+        self.ClearArea(0, 0, width, height, 1);
+    }
+    function onMotion(event)
+    {
+        if (self.pressed) {
+            int x = self.xp0;
+            int y = self.yp0;
+            int x0 = self.xp1;
+            int y0 = self.yp1;
+            int x1 = event.x();
+            int y1 = event.y();
+            if (x != x0 && y != y0)
+                self.rectangle(x, y, x0, y0);
+            self.rectangle(x, y, x1, y1);
+            self.xp1 =: x1;
+            self.yp1 =: y1;
+        }
+    }
+    function movehor(int move)
+    {
+        int width = self.width;
+        float despl = (self.x1 - self.x0) / width * move;
+        self.x0 += despl;
+        self.x1 += despl;
+        self.ClearArea(0, 0, width, self.height, 1);
+    }
+    function movever(int move)
+    {
+        float despl = (self.y1 - self.y0) / self.width * move;
+        self.y1 += despl;
+        self.y0 += despl;
+        self.ClearArea(0, 0, self.width, self.height, 1);
+    }
+    function rectangle(int x0, int y0, int x1, int y1)
+    {
+        int x = x0;
+        int y = y0;
+        int width = x1 - x;
+        int height = y1 - y;
+        if (width && height) {
+            if (x > x1) {
+                x = x1;
+                width = -width; 
+            }
+            if (y > y1) {
+                y = y1;
+                height = -height;
+            }
+            self.DrawRectangle(x, y, width, height);
+        }
+    }
+}
+
+//**************************************************************
+
+function rangey(fun, float x0, float x1)
+{
+    float y0 =  1.e100;
+    float y1 = -1.e100;
+    float step = (x1 - x0) / 800;
+    for (float x = x0; x <= x1; x += step) {
+        try {
+            float y = fun(x);
+            if (y < y0)
+                y0 = y;
+            if (y > y1)
+                y1 = y;
+        }
+        catch ()
+        {
+        }
+    }
+    return y0, y1;
+}
+
+//**************************************************************
+
+function compile(string expr)
+{
+    expr = "function evalexpr(float x) {\n return (" + expr + "); }\n";
+    load_language("winxed");
+    var compiler = compreg("winxed");
+    if (compiler == null)
+        throw "Can't get winxed compiler";
+    var code = compiler.compile(expr);
+    var fun = code[0];
+    return fun;
+}
+
+function main [main](args)
+{
+    int nargs = elements(args);
+    if (nargs < 2) {
+        cry("usage: graph [ --range x0,x1[y0,y1] ] function [ more functions ]");
+        exit(1);
+    }
+
+    int iarg = 1;
+    float x0  = -10, x1 = 10, y0 = -10, y1 = 10;
+    if (args[iarg] == "--range") {
+        ++iarg;
+        var values = split(",", args[iarg]);
+        switch (elements(values)) {
+          case 4:
+            y0 = values[2];
+            y1 = values[3];
+          case 2:
+            x0 = values[0];
+            x1 = values[1];
+            break;
+          default:
+            cry("Invalid range");
+            exit(1);
+        }
+        ++iarg;
+    }
+
+    string expr = "";
+    var funcs = [];
+    for (; iarg < nargs; ++iarg) {
+        string newexpr = args[iarg];
+        expr = expr + " | " + newexpr;
+        try {
+            var fun = compile(newexpr);
+            push(funcs, fun);
+        }
+        catch (e) {
+            cry("error compiling function: ", e["message"]);
+            exit(1);
+        }
+    }
+    if (elements(funcs) == 0) {
+        cry("usage: graph [ --range x0,x1[y0,y1] ] function [ more functions ]");
+        exit(1);
+    }
+
+    var display = new Display();
+    var controller = new Controller(display);
+    var graph = new Graph(controller, expr, funcs, x0, x1, y0, y1);
+    int loop = true;
+    display.SetWMProtocols(graph, ['WM_DELETE_WINDOW']);
+    graph.OnDestroy += function (event) {
+        loop = false;
+    };
+
+    graph.Map();
+    var event = new Event();
+    while (loop) {
+        display.NextEvent(event);
+        controller.handleEvent(event);
+    }
+    display.Close();
+}
+
+// End

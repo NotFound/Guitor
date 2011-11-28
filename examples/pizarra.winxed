@@ -1,0 +1,276 @@
+#! winxed
+
+// pizarra: a simple drawing tool using WinxedXlib module
+
+
+$load "Guitor.pbc";
+
+$include "Guitor.winxhead";
+
+using namespace Guitor;
+using namespace Guitor.Events;
+
+//**********************************************************************
+
+function evhandler(object, string methodname)
+{
+    var method = find_method(object, methodname);
+    return function (event) { object.*method(event); };
+}
+
+//**********************************************************************
+
+class ColorSelector : ChildWindow
+{
+    var pizarra;
+    var colors;
+    const int WIDTH = 50, HEIGHT = 82;
+    function ColorSelector(pizarra, int x, int y)
+    {
+        self.pizarra = pizarra;
+        string colors[] = [
+           "black",  "white",      "grey",
+           "red",    "green",      "blue",
+           "yellow", "pink",       "orange",
+           "violet", "maroon",     "aquamarine",
+           "coral",  "lime green", "light steel blue"
+        ];
+        self.colors = colors;
+        self.ChildWindow(pizarra, x, y, WIDTH + 1, HEIGHT + 1);
+        self.OnExpose += evhandler(self, "onExpose");
+        self.OnButtonPress += evhandler(self, "onButtonPress");
+        self.Map();
+    }
+    function onExpose(event)
+    {
+        self.SetForeground("black");
+        self.DrawLine(    0,      0, WIDTH, 0);
+        self.DrawLine(WIDTH,      0, WIDTH, HEIGHT);
+        self.DrawLine(WIDTH, HEIGHT,     0, HEIGHT);
+        self.DrawLine(    0, HEIGHT,     0, 0);
+        var colors = self.colors;
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 5; ++j) {
+                self.SetForeground("black");
+                self.DrawRectangle( 2 + i * 16, 2 + j * 16, 14, 14);
+                string color = colors[i * 3 + j];
+                self.SetForeground(color);
+                self.FillRectangle( 3 + i * 16, 3 + j * 16, 13, 13);
+            }
+    }
+    function onButtonPress(event)
+    {
+        int x = event.x();
+        int y = event.y();
+        x = x / 16;
+        y = y / 16;
+        if (x >= 0 || x < 3 || y >= 0 || y < 5) {
+            var colors = self.colors;
+            string color = colors[x * 3 + y];
+            self.pizarra.setcolor(color);
+        }
+        self.Destroy();
+    }
+}
+
+//**********************************************************************
+
+class Line
+{
+    var colorspec;
+    var xcoord;
+    var ycoord;
+    function Line(string colorspec)
+    {
+        self.colorspec = colorspec;
+        int x[];
+        int y[];
+        self.xcoord = x;
+        self.ycoord = y;
+    }
+    function push(int x, int y)
+    {
+        push(self.xcoord, x);
+        push(self.ycoord, y);
+    }
+    function draw(drawable)
+    {
+        var x = self.xcoord;
+        var y = self.ycoord;
+        int n = elements(x) - 1;
+        drawable.SetForeground(self.colorspec);
+        if (n == 0)
+            drawable.DrawPoint(x[0], y[0]);
+        else
+            for (int i = 0; i < n; ++i)
+                drawable.DrawLine(x[i], y[i], x[i + 1], y[i + 1]);
+    }
+}
+
+//**********************************************************************
+
+class Pizarra : TopLevelWindow
+{
+    var listline;
+    var line;
+    var pressed;
+    var oldx;
+    var oldy;
+    var colorspec;
+    function Pizarra(controller)
+    {
+        self.listline = [];
+        string title = "pizarra";
+        self.TopLevelWindow(controller, title, 0, 0, 600, 400);
+        controller.created(self);
+        self.pressed = false;
+        self.oldx = 0;
+        self.oldy = 0;
+        self.colorspec = "black";
+
+        self.OnDestroy += function (event)
+        {
+            self.controller.destroyed(self);
+        };
+        self.OnConfigure += function (event) { self.onConfigure(event); };
+        self.OnExpose += function (event) { self.onExpose(event); };
+        self.OnKeyPress += function (event) { self.onKeyPress(event); };
+        self.OnButtonPress += function (event) { self.onButtonPress(event); };
+        self.OnButtonRelease += function (event) { self.onButtonRelease(event); };
+        self.OnMotion += function (event) { self.onMotion(event); };
+        self.OnClientMessage += function (event) { self.onClientMessage(event); };
+    }
+
+    function onConfigure(event)
+    {
+        __DEBUG__ && cry(__FUNCTION__,
+                " x: ", event.x(),          " y: ", event.y(),
+                " width: ", event.width(), "  height: ", event.height());
+    }
+    function onExpose(event)
+    {
+        for (var l in self.listline)
+            l.draw(self);
+    }
+    function onKeyPress(event)
+    {
+        int code = event.keycode();
+        var display = self.display;
+        string key = display.KeysymToString(display.KeycodeToKeysym(code));
+        switch (key) {
+          case "Escape":
+            self.Destroy();
+            break;
+          case "c":
+            int x = event.x();
+            int y = event.y();
+            self.opencolorsel(x, y);
+            break;
+          case "BackSpace":
+            self.pressed =: false;
+            if (self.line != null)
+                self.line = null;
+            if (elements(self.listline) > 0)
+                self.listline.pop();
+            //TODO else beep, or something.
+            self.ClearArea(0, 0, 0, 0, 1);
+            break;
+          default:
+            int sym = self.display.KeycodeToKeysym(code);
+            say('Key name: ', self.display.KeysymToString(sym));
+        }
+    }
+    function onButtonPress(event)
+    {
+        int button = event.button();
+        self.pressed = button;
+        int oldx = event.x();
+        int oldy = event.y();
+        self.oldx =: oldx;
+        self.oldy =: oldy;
+    }
+    function onButtonRelease(event)
+    {
+        self.pressed = false;
+        self.line = null;
+    }
+    function onMotion(event)
+    {
+        if (self.pressed) {
+            int x = event.x();
+            int y = event.y();
+            int oldx = self.oldx;
+            int oldy = self.oldy;
+            if (x != oldx || y != oldy) {
+                var line = self.line;
+                if (line == null) {
+                    self.line = line = new Line(self.colorspec);
+                    self.listline.push(line);
+                    line.push(oldx, oldy);
+                }
+                line.push(x, y);
+                line.draw(self);
+                self.oldx =: x;
+                self.oldy =: y;
+            }
+        }
+    }
+    function onClientMessage(event)
+    {
+        say('Bye');
+        self.Destroy();
+    }
+
+    function opencolorsel(int x, int y)
+    {
+        var colorsel = new ColorSelector(self, x, y);
+    }
+    function setcolor(string spec)
+    {
+        self.colorspec = spec;
+    }
+}
+
+//**********************************************************************
+
+class MyController : Controller
+{
+    var counter;
+    function MyController()
+    {
+        self.Controller();
+        self.counter = 0;
+    }
+    function created(pizarra)
+    {
+        self.counter++;
+    }
+    function destroyed(pizarra)
+    {
+        var counter = self.counter;
+        if (--counter == 0)
+            self.Quit();
+    }
+}
+
+//**********************************************************************
+
+function main(args)
+{
+    int nargs = elements(args);
+    var controller = new MyController();
+
+    int n =  (nargs < 2) ? 1 : nargs - 1;
+    for (int i = 0; i < n; ++i) {
+        var pizarra = new Pizarra(controller);
+        pizarra.SetWMProtocols(['WM_DELETE_WINDOW']);
+        pizarra.Map();
+    }
+
+    controller.MainLoop();
+
+    say('End');
+    controller.Close();
+}
+
+// End.

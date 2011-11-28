@@ -1,0 +1,456 @@
+#! winxed
+
+// GuitorNci.winxed
+
+// Xlib NCI for Guitor
+
+namespace Guitor
+{
+
+//**************************************************************
+//                 Internal helper functions
+//**************************************************************
+
+namespace Xlib__private
+{
+
+$include_const "datatypes.pasm";
+
+// Variable names
+const string
+    XLIB          = "winxed_xlib",
+    EVENTPAD      = "winxed_eventpad",
+    ANYVIEW       = "winxed_anyview",
+    BUTTONVIEW    = "winxed_buttonview",
+    KEYVIEW       = "winxed_keyview",
+    MOTIONVIEW    = "winxed_motionview",
+    STRUCTUREVIEW = "winxed_structureview",
+    EXPOSEVIEW    = "winxed_exposeview",
+    ATOMVIEW      = "winxed_atomview",
+    XCOLORVIEW    = "winxed_xcolorview";
+
+function loadXlib()
+{
+    string libs[] = [
+        "libX11",
+        "libX11.so",
+        "libX11.so.6",
+        "/usr/lib/libX11.so",
+        "/usr/lib/libX11.so.6",
+        "cygX11-6"
+    ];
+    var l;
+    for (string lib in libs) {
+        l= loadlib(lib);
+        if (l) break;
+    }
+    return l;
+}
+
+function getlib()
+{
+    var ns = namespace Xlib__private;
+    var l = ns[XLIB];
+    if (l == null)
+        ns[XLIB] = l = loadXlib();
+    return l;
+}
+
+//**************************************************************
+/*
+        Event structure definition.
+        Values used for sizes and offsets are derived
+        from Xlib docs and testing in several platforms.
+*/
+
+const int XLIB_Bool   = DATATYPE_INT32;
+const int XLIB_time_t = DATATYPE_LONG;
+const int XLIB_Window = DATATYPE_LONG;
+
+function create_eventpad()
+{
+    const int PAD = 24;
+    int viewdata [PAD + 2] = [ DATATYPE_STRUCT, PAD ];
+    for (int i = 0; i < PAD; ++i)
+        viewdata[i + 2] = DATATYPE_LONG;
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
+function create_anyview()
+{
+    int viewdata [] = [
+        DATATYPE_STRUCT, 5,
+        DATATYPE_INT,  // type
+        DATATYPE_LONG, // Serial
+        XLIB_Bool,     // send event
+        DATATYPE_PTR,  // display
+        XLIB_Window   // window
+    ];
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
+function create_buttonview()
+{
+    int viewdata [] = [
+        DATATYPE_STRUCT, 14,
+        DATATYPE_INT,  // type
+        DATATYPE_LONG, // Serial
+        XLIB_Bool,     // send event
+        DATATYPE_PTR,  // display
+        XLIB_Window,   // window
+        XLIB_Window,   // root
+        XLIB_Window,   // subwindow
+        XLIB_time_t,   // time
+        DATATYPE_INT,  // x
+        DATATYPE_INT,  // y
+        DATATYPE_INT,  // x_root
+        DATATYPE_INT,  // y_root
+        DATATYPE_INT,  // state
+        DATATYPE_INT,  // button
+        XLIB_Bool      // same_screen
+    ];
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
+function create_keyview()
+{
+    int viewdata [] = [
+        DATATYPE_STRUCT, 14,
+        DATATYPE_INT,  // type
+        DATATYPE_LONG, // Serial
+        XLIB_Bool,     // send event
+        DATATYPE_PTR,  // display
+        XLIB_Window,   // window
+        XLIB_Window,   // root
+        XLIB_Window,   // subwindow
+        XLIB_time_t,   // time
+        DATATYPE_INT,  // x
+        DATATYPE_INT,  // y
+        DATATYPE_INT,  // x_root
+        DATATYPE_INT,  // y_root
+        DATATYPE_INT,  // state
+        DATATYPE_INT,  // keycode
+        XLIB_Bool      // same_screen
+    ];
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
+function create_motionview()
+{
+    int viewdata [] = [
+        DATATYPE_STRUCT, 14,
+        DATATYPE_INT,  // type
+        DATATYPE_LONG, // Serial
+        XLIB_Bool,     // send event
+        DATATYPE_PTR,  // display
+        XLIB_Window,   // window
+        XLIB_Window,   // root
+        XLIB_Window,   // subwindow
+        XLIB_time_t,   // time
+        DATATYPE_INT,  // x
+        DATATYPE_INT,  // y
+        DATATYPE_INT,  // x_root
+        DATATYPE_INT,  // y_root
+        DATATYPE_INT,  // state
+        DATATYPE_INT   // keycode
+    ];
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
+function create_structureview()
+{
+    int viewdata [] = [
+        DATATYPE_STRUCT, 13,
+        DATATYPE_INT,  // type
+        DATATYPE_LONG, // Serial
+        XLIB_Bool,     // send event
+        DATATYPE_PTR,  // display
+        XLIB_Window,   // event window
+        XLIB_Window,   // window
+        DATATYPE_INT,  // x
+        DATATYPE_INT,  // y
+        DATATYPE_INT,  // width
+        DATATYPE_INT,  // height
+        DATATYPE_INT,  // border_width
+        XLIB_Window,   // above
+        XLIB_Bool      // override_redirect
+    ];
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
+function create_exposeview()
+{
+    int viewdata [] = [
+        DATATYPE_STRUCT, 10,
+        DATATYPE_INT,  // type
+        DATATYPE_LONG, // Serial
+        XLIB_Bool,     // send event
+        DATATYPE_PTR,  // display
+        XLIB_Window,   // window
+        DATATYPE_INT,  // x
+        DATATYPE_INT,  // y
+        DATATYPE_INT,  // width
+        DATATYPE_INT,  // height
+        DATATYPE_INT   // count
+    ];
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
+//**************************************************************
+
+function geteventpad()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[EVENTPAD];
+    if (st == null)
+        ns[EVENTPAD] = st = create_eventpad();
+    return st;
+}
+
+function getanyview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[ANYVIEW];
+    if (st == null)
+        ns[ANYVIEW] = st = create_anyview();
+    return st;
+}
+
+function getbuttonview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[BUTTONVIEW];
+    if (st == null)
+        ns[BUTTONVIEW] = st = create_buttonview();
+    return st;
+}
+
+function getkeyview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[KEYVIEW];
+    if (st == null)
+        ns[KEYVIEW] = st = create_keyview();
+    return st;
+}
+
+function getmotionview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[MOTIONVIEW];
+    if (st == null)
+        ns[MOTIONVIEW] = st = create_motionview();
+    return st;
+}
+
+function getstructureview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[STRUCTUREVIEW];
+    if (st == null)
+        ns[STRUCTUREVIEW] = st = create_structureview();
+    return st;
+}
+
+function getexposeview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[EXPOSEVIEW];
+    if (st == null)
+        ns[EXPOSEVIEW] = st = create_exposeview();
+    return st;
+}
+
+function getatomview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[ATOMVIEW];
+    if (st == null)
+        ns[ATOMVIEW] = st = new ["StructView"]
+                ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+    return st;
+}
+
+function getxcolorview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[XCOLORVIEW];
+    if (st == null)
+        ns[XCOLORVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 6,
+            DATATYPE_LONG, // pixel
+            DATATYPE_SHORT, // red
+            DATATYPE_SHORT, // green
+            DATATYPE_SHORT, // blue
+            DATATYPE_CHAR,  // flags
+            DATATYPE_CHAR   // pad
+        ] );
+    return st;
+}
+
+//**************************************************************
+
+function create_function(string funcname)
+{
+    string sig;
+    switch (funcname) {
+      case "XDisplayName":
+      case "XOpenDisplay":
+        sig = "pp";
+        break;
+      case "XCloseDisplay":
+      case "XDefaultScreen":
+      case "XStringToKeysym":
+      case "XSetLocaleModifiers":
+        sig = "ip";
+        break;
+      case "setlocale":
+        sig = "pip";
+        break;
+      case "XDefaultGC":
+      case "XDefaultColormap":
+        sig = "ppi";
+        break;
+      case "XRootWindow":
+        sig = "ipi";
+        break;
+      case "XDefaultDepth":
+      case "XBlackPixel":
+      case "XWhitePixel":
+      case "XKeysymToKeycode":
+        sig = "ipi";
+        break;
+      case "XCreateGC":
+        sig = "ppipi";
+        break;
+      case "XSetForeground":
+        sig = "vppi";
+        break;
+      case "XMapWindow":
+      case "XUnmapWindow":
+        sig = "ipi";
+        break;
+      case "XDestroyWindow":
+        sig = "ipi";
+        break;
+      case "XRaiseWindow":
+        sig = "vpi";
+        break;
+      case "XSetFunction":
+        sig = "vppi";
+        break;
+      case "XNextEvent":
+        sig = "ipp";
+        break;
+      case "XKeycodeToKeysym":
+        sig = "ipii";
+        break;
+      case "XKeysymToString":
+        sig = "pi";
+        break;
+      case "XLookupString":
+        sig = "ippipp";
+        break;
+      case "XSelectInput":
+        sig = "ipii";
+        break;
+      case "XInternAtom":
+        sig = "ippi";
+        break;
+      case "XStoreName":
+        sig = "ipip";
+        break;
+      case "XDrawPoint":
+        sig = "ipipii";
+        break;
+      case "XDrawLine":
+      case "XDrawRectangle":
+      case "XFillRectangle":
+        sig = "ipipiiii";
+        break;
+      case "XClearArea":
+        sig = "ipiiiiii";
+        break;
+      case "XCreateSimpleWindow":
+        sig = "ipiiiiiiii";
+        break;
+      case "XSetWMProtocols":
+        sig = "ipipi";
+        break;
+      case "XMoveWindow":
+        sig = "ipiii";
+        break;
+      case "XParseColor":
+        sig = "ipppp";
+        break;
+      case "XAllocColor":
+        sig = "ippp";
+        break;
+      case "XDrawString":
+        sig = "vpipiipi";
+        break;
+      case "XmbDrawString":
+      case "Xutf8DrawString":
+        sig = "vpippiipi";
+        break;
+      case "XCreateFontSet":
+        sig = "pppppp";
+        break;
+      case "XSetLineAttributes":
+        sig = "vppiiii";
+        break;
+      case "XSetSubwindowMode":
+        sig = "vppi";
+        break;
+      default:
+        throw "Function " + funcname + " unknown";
+    }
+    var func = dlfunc(getlib(), funcname, sig);
+    return func;
+}
+
+//**************************************************************
+
+function str_to_cstring(string s)
+{
+    var cstring = new ["ByteBuffer"];
+    cstring =: trans_encoding(s, "utf8");
+    push(cstring, 0);
+    return cstring;
+}
+
+function string_from_nci(p)
+{
+    string s;
+    if (p != null)
+        s = p.as_string("utf8");
+    return s;
+}
+
+function newAtomlist(int n)
+{
+    var view = getatomview();
+    var data = view.alloc(n);
+    return data;
+}
+
+function getfun(string funcname)
+{
+    var ns = namespace Xlib__private;
+    var fun = ns[funcname];
+    if (fun == null)
+        ns[funcname] = fun = create_function(funcname);
+    return fun;
+}
+
+} // namespace Xlib__private
+
+} // namespace Guitor
+
+// End

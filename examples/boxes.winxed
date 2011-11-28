@@ -1,0 +1,339 @@
+#! winxed
+
+// boxes: put boxes with text
+
+$load "Guitor.pbc";
+
+$include "Guitor.winxhead";
+
+using namespace Guitor;
+using namespace Guitor.Events;
+
+//**********************************************************************
+
+const int STEP = 4; // pixels
+
+class Boxes : TopLevelWindow
+{
+    var boxlist;
+    var activebox;
+    var width;
+    var height;
+    var x;
+    var y;
+    var x1;
+    var y1;
+    var pressed;
+    var numcolor;
+    function Boxes(controller)
+    {
+        self.boxlist = [];
+        self.activebox = -1;
+        self.x = 0;
+        self.y = 0;
+        self.x1 = 0;
+        self.y1 = 0;
+        self.pressed = false;
+        self.numcolor = 0;
+        self.width = 600;
+        self.height = 400;
+        self.TopLevelWindow(controller, "Boxes", 0, 0, 600, 400);
+
+        self.OnConfigure += function (event) { self.onConfigure(event); };
+        self.OnExpose += function (event) { self.onExpose(event); };
+        self.OnKeyPress += function (event) { self.onKeyPress(event); };
+        self.OnButtonPress += function (event) { self.onButtonPress(event); };
+        self.OnButtonRelease += function (event) { self.onButtonRelease(event); };
+        self.OnMotion += function (event) { self.onMotion(event); };
+        self.OnClientMessage += function (event) { self.onClientMessage(event); };
+        self.OnDestroy += function (event)
+        {
+            var controller = self.controller;
+            controller.unregister(self);
+            controller.Quit();
+        };
+    }
+    function activate(box)
+    {
+        var boxlist = self.boxlist;
+        for (int i = 0, n = elements(boxlist); i < n; ++i)
+            if (boxlist[i] === box) {
+                self.activebox =: i;
+                box.RaiseWindow();
+                break;
+            }
+    }
+
+    function onConfigure(event)
+    {
+        self.width =: int(event.width());
+        self.height =: int(event.height());
+    }
+    function onExpose(event)
+    {
+    }
+    function onKeyPress(event)
+    {
+        var display = self.display;
+        var boxlist = self.boxlist;
+        int active = self.activebox;
+        int code = event.keycode();
+
+        string key = display.KeysymToString(display.KeycodeToKeysym(code));
+        switch (key) {
+          case "Escape":
+            self.Destroy();
+            break;
+          case "BackSpace":
+            if (active >= 0)
+            {
+                var boxlist = self.boxlist;
+                var box = boxlist[active];
+                box.Destroy();
+                delete boxlist[active];
+                if (active >= elements(boxlist))
+                    --active;
+                self.activebox =: active;
+            }
+            break;
+          case 'Up':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(box.posx, box.posy - STEP);
+            }
+            break;
+          case 'Down':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(box.posx, box.posy + STEP);
+            }
+            break;
+          case 'Left':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(box.posx - STEP, box.posy);
+            }
+            break;
+          case 'Right':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(box.posx + STEP, box.posy);
+            }
+            break;
+          case 'Home':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(0, box.posy);
+            }
+            break;
+          case 'End':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(self.width - box.width, box.posy);
+            }
+            break;
+          case 'Prior':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(box.posx, 0);
+            }
+            break;
+          case 'Next':
+            if (active >= 0) {
+                var box = boxlist[active];
+                box.MoveWindow(box.posx, self.height - box.height);
+            }
+            break;
+          case '0': case '1': case '2': case '3': case '4':
+          case '5': case '6': case '7': case '8': case '9':
+            self.numcolor =: int(key);
+            break;
+        }
+    }
+    function onButtonPress(event)
+    {
+        self.pressed =: true;
+        int x = event.x();
+        int y = event.y();
+        self.x =: x;
+        self.y =: y;
+        self.x1 =: x;
+        self.y1 =: y;
+        self.SetFunction(0xa);
+        self.SetLineAttributes(0, 1, 0, 0);
+        self.SetSubwindowMode(1);
+    }
+    function onButtonRelease(event)
+    {
+        self.pressed =: false;
+        int x = self.x;
+        int y = self.y;
+        int x1 = self.x1;
+        int y1 = self.y1;
+        self.rectangle(x, y, x1, y1);
+        int x2 = event.x();
+        int y2 = event.y();
+        int width, height;
+        if (x2 > x)
+            width = x2 - x;
+        else {
+            width = x - x2;
+            x = x2;
+        }
+        if (y2 > y)
+            height = y2 - y;
+        else {
+            height = y - y2;
+            y = y2;
+        }
+        if (width == 0 || height == 0)
+            return;
+        var boxlist = self.boxlist;
+        string color;
+        switch (self.numcolor) {
+          case 0: color =  "yellow";           break;
+          case 1: color =  "red";              break;
+          case 2: color =  "blue";             break;
+          case 3: color =  "light steel blue"; break;
+          case 4: color =  "orange";           break;
+          case 5: color =  "green";            break;
+          case 6: color =  "maroon";           break;
+          case 7: color =  "aquamarine";       break;
+          case 8: color =  "coral";            break;
+          default: color = "violet";
+        }
+        var box =  new Box(self, x, y, width, height,
+            { "background_color" : self.display.ParseColor(color) } );
+        box.Map();
+        int active = elements(boxlist);
+        push(boxlist, box);
+        self.activebox =: active;
+        self.SetFunction(0x3);
+        self.SetLineAttributes(0, 0, 0, 0);
+        self.SetSubwindowMode(0);
+    }
+    function onMotion(event)
+    {
+        if (self.pressed) {
+            int x = self.x;
+            int y = self.y;
+            int x1 = self.x1;
+            int y1 = self.y1;
+            int x2 = event.x();
+            int y2 = event.y();
+            if (x != x1 && y != y1)
+                self.rectangle(x, y, x1, y1);
+            self.rectangle(x, y, x2, y2);
+            self.x1 =: x2;
+            self.y1 =: y2;
+        }
+    }
+    function rectangle(int x1, int y1, int x2, int y2)
+    {
+        int x = x1;
+        int y = y1;
+        int width = x2 - x;
+        int height = y2 - y;
+        if (width && height) {
+            if (x > x2) {
+                x = x2;
+                width = -width; 
+            }
+            if (y > y2) {
+                y = y2;
+                height = -height;
+            }
+            self.DrawRectangle(x, y, width, height);
+        }
+    }
+    function onClientMessage(event)
+    {
+        self.Destroy();
+    }
+}
+
+class Box : ChildWindow
+{
+    var moving;
+    var posx;
+    var posy;
+    var width;
+    var height;
+    var movex;
+    var movey;
+    function Box(parent, int x, int y, int width, int height, style [optional])
+    {
+        self.ChildWindow(parent, x, y, width, height, style);
+        self.moving = false;
+        self.posx = x;
+        self.posy = y;
+        self.width = width;
+        self.height = height;
+        self.movex = 0;
+        self.movey = 0;
+        self.OnConfigure += function(event)
+        {
+            self.width =: int(event.width());
+            self.height =: int(event.height());
+            self.posx =: int(event.x());
+            self.posy =: int(event.y());
+        };
+        self.OnExpose += function (event)
+        {
+            int width = self.width - 1;
+            int height = self.height - 1;
+            self.DrawLine(0,      0,      width, 0);
+            self.DrawLine(0,      height, width, height);
+            self.DrawLine(0,      0,      0,     height);
+            self.DrawLine(width,  0,      width, height);
+        };
+        self.OnButtonPress += function (event)
+        {
+            self.moving =: true;
+            self.movex =: int(event.x_root());
+            self.movey =: int(event.y_root());
+            parent.activate(self);
+        };
+        self.OnButtonRelease += function (event)
+        {
+            self.moving =: false;
+        };
+        self.OnMotion += function (event)
+        {
+            if (self.moving) {
+                int evx = event.x_root();
+                int evy = event.y_root();
+                int x = evx - self.movex;
+                int y = evy - self.movey;
+                if (x != 0 || y != 0) {
+                    self.movex =: evx;
+                    self.movey =: evy;
+                    int childx = self.posx + x;
+                    int childy = self.posy + y;
+                    self.MoveWindow(childx, childy);
+                    self.posx =: childx;
+                    self.posy =: childy;
+                }
+            }
+        };
+    }
+}
+
+//**********************************************************************
+
+function main(args)
+{
+    var controller = new Controller();
+    controller.setDefaultFont("-*-liberation.mono-medium-r-*-*-*-120-*");
+
+    var boxes = new Boxes(controller);
+    boxes.SetWMProtocols(['WM_DELETE_WINDOW']);
+    boxes.Map();
+
+    controller.MainLoop();
+
+    say('End');
+    controller.Close();
+}
+
+// End.
