@@ -419,6 +419,90 @@ class Event
 }
 
 //**************************************************************
+//                      GC
+//**************************************************************
+
+class GraphicContext
+{
+    var display;
+    var xgc;
+    function GraphicContext(display)
+    {
+        self.display = display;
+        self.xgc = display.DefaultGC();
+    }
+    function GraphicContext(display, drawable)
+    {
+        self.display = display;
+        self.xgc = getfun("XCreateGC")
+                (display.xdisplay, drawable.xdrawable, null, 0);
+    }
+
+    function SetForeground(string spec)
+    {
+        int pixel = self.display.ParseColor(spec);
+        getfun("XSetForeground")(self.display.xdisplay, self.xgc, pixel);
+    }
+    function SetFunction(display, int func)
+    {
+        getfun("XSetFunction")(display.xdisplay, self.xgc, func);
+    }
+    function SetLineAttributes(display, int width,
+            int style, int cap, int join)
+    {
+        getfun("XSetLineAttributes")(display.xdisplay, self.xgc,
+                width, style, cap, join);
+    }
+    function SetSubwindowMode(display, int mode)
+    {
+        getfun("XSetSubwindowMode")(display.xdisplay, self.xgc, mode);
+    }
+
+    function DrawPoint(display, drawable, int x, int y)
+    {
+        getfun("XDrawPoint")(display.xdisplay, drawable.xdrawable,
+                self.xgc, x, y);
+    }
+    function DrawLine(display, drawable, int x1, int y1, int x2, int y2)
+    {
+        getfun("XDrawLine")(display.xdisplay, drawable.xdrawable,
+                self.xgc, x1, y1, x2, y2);
+    }
+    function DrawRectangle(display, drawable,
+            int x, int y, int width, int height)
+    {
+        getfun("XDrawRectangle")(display.xdisplay, drawable.xdrawable,
+                self.xgc, x, y, width, height);
+    }
+    function FillRectangle(display, drawable,
+            int x, int y, int width, int height)
+    {
+        getfun("XFillRectangle")(display.xdisplay, drawable.xdrawable,
+                self.xgc, x, y, width, height);
+    }
+
+    function DrawString(display, drawable, int x, int y, string str)
+    {
+        var xgc = self.xgc;
+        var font = self.font;
+        if (font == null) {
+            font = display.getDefaultFont();
+            self.font = font;
+        }
+        var xdisplay = display.xdisplay;
+        var xdrawable = drawable.xdrawable;
+        var pstr = str_to_cstring(str);
+        var len = bytelength(str);
+        if (font != null)
+            getfun("XmbDrawString")(xdisplay, xdrawable,
+                    font, xgc, x, y, pstr, len);
+        else
+            getfun("XDrawString")(xdisplay, xdrawable,
+                    xgc, x, y, pstr, len);
+    }
+}
+
+//**************************************************************
 //                      Drawable
 //**************************************************************
 
@@ -432,85 +516,51 @@ class Drawable
     {
         var gc = self.gc;
         if (gc == null)
-            gc = self.display.DefaultGC();
+            gc = new GraphicContext();
         return gc;
     }
     function owngc()
     {
         var gc = self.gc;
         if (gc == null)
-            self.gc = gc = getfun("XCreateGC")
-                    (self.display.xdisplay, self.xdrawable, null, 0);
+            self.gc = new GraphicContext(self.display, self);
         return gc;
     }
     function SetForeground(string spec)
     {
-        var gc = self.owngc();
-	int pixel = self.display.ParseColor(spec);
-        getfun("XSetForeground")(self.display.xdisplay, gc, pixel);
+        self.owngc().SetForeground(spec);
     }
     function DrawPoint(int x, int y)
     {
-        __DEBUG__ && cry(__FUNCTION__, self.xdrawable);
-        var gc = self.getgc();
-        getfun("XDrawPoint")(self.display.xdisplay, self.xdrawable, gc, x, y);
-        __DEBUG__ && cry(__FUNCTION__ + " end");
+        self.getgc().DrawPoint(self.display, self, x, y);
     }
     function DrawLine(int x1, int y1, int x2, int y2)
     {
-        __DEBUG__ && cry(__FUNCTION__);
-        var gc = self.getgc();
-        getfun("XDrawLine")(self.display.xdisplay, self.xdrawable,
-                gc, x1, y1, x2, y2);
+        self.getgc().DrawLine(self.display, self, x1, y1, x2, y2);
     }
     function DrawRectangle(int x, int y, int width, int height)
     {
-        __DEBUG__ && cry(__FUNCTION__);
-        var gc = self.getgc();
-        getfun("XDrawRectangle")(self.display.xdisplay, self.xdrawable,
-                gc, x, y, width, height);
+        self.getgc().DrawRectangle(self.display, self, x, y, width, height);
     }
     function FillRectangle(int x, int y, int width, int height)
     {
-        __DEBUG__ && cry(__FUNCTION__);
-        var gc = self.getgc();
-        getfun("XFillRectangle")(self.display.xdisplay, self.xdrawable,
-                gc, x, y, width, height);
+        self.getgc().FillRectangle(self.display, self, x, y, width, height);
     }
     function SetFunction(int func)
     {
-        var gc = self.owngc();
-        getfun("XSetFunction")(self.display.xdisplay, gc, func);
+        self.owngc().SetFunction(self.display, func);
     }
     function SetLineAttributes(int width, int style, int cap, int join)
     {
-        var gc = self.owngc();
-        getfun("XSetLineAttributes")(self.display.xdisplay, gc, width, style, cap, join);
+        self.owngc().SetLineAttributes(self.display, width, style, cap, join);
     }
     function SetSubwindowMode(int mode)
     {
-        var gc = self.owngc();
-        getfun("XSetSubwindowMode")(self.display.xdisplay, gc, mode);
+        self.owngc().SetSubwindowMode(self.display, mode);
     }
     function DrawString(int x, int y, string str)
     {
-        var display = self.display;
-        var gc = self.owngc();
-        var font = self.font;
-        if (font == null) {
-            font = display.getDefaultFont();
-            self.font = font;
-        }
-        var xdisplay = display.xdisplay;
-        var xdrawable = self.xdrawable;
-        var pstr = str_to_cstring(str);
-        var len = bytelength(str);
-        if (font != null)
-            getfun("XmbDrawString")(xdisplay, xdrawable,
-                    font, gc, x, y, pstr, len);
-        else
-            getfun("XDrawString")(xdisplay, xdrawable,
-                    gc, x, y, pstr, len);
+        self.getgc().DrawString(self.display, self, x, y, str);
     }
 }
 
