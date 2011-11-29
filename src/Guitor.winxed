@@ -484,11 +484,9 @@ class GraphicContext
     function DrawString(display, drawable, int x, int y, string str)
     {
         var xgc = self.xgc;
-        var font = self.font;
-        if (font == null) {
+        var font = drawable.font;
+        if (font == null)
             font = display.getDefaultFont();
-            self.font = font;
-        }
         var xdisplay = display.xdisplay;
         var xdrawable = drawable.xdrawable;
         var pstr = str_to_cstring(str);
@@ -516,7 +514,7 @@ class Drawable
     {
         var gc = self.gc;
         if (gc == null)
-            gc = new GraphicContext();
+            gc = new GraphicContext(self.display);
         return gc;
     }
     function owngc()
