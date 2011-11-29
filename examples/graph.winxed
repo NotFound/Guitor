@@ -48,6 +48,10 @@ class Graph : TopLevelWindow
         self.OnButtonPress += function (event) { self.onButtonPress(event); };
         self.OnButtonRelease += function (event) { self.onButtonRelease(event); };
         self.OnMotion += function (event) { self.onMotion(event); };
+
+        var font = self.display.CreateFont("Bitstream Vera Sans Mono,Free Mono-12");
+        if (font != null)
+            self.SetFont(font);
     }
     function drawfun(fun)
     {

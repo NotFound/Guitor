@@ -23,6 +23,7 @@ namespace Xlib__private
 extern function str_to_cstring;
 extern function string_from_nci;
 extern function getfun;
+extern function getxftfun;
 extern function geteventpad;
 extern function getanyview;
 extern function getstructureview;
@@ -31,6 +32,7 @@ extern function getmotionview;
 extern function getbuttonview;
 extern function getkeyview;
 extern function getxcolorview;
+extern function getxftcolorview;
 extern function getatomview;
 extern function getview;
 
@@ -78,6 +80,14 @@ class Display
     {
         int depth = getfun("XDefaultDepth")(self.xdisplay, scrnum);
         return depth;
+    }
+    function DefaultVisual(int scrnum[optional])
+    {
+        return getfun("XDefaultVisual")(self.xdisplay, scrnum);
+    }
+    function DefaultColormap(int scrnum[optional])
+    {
+        return getfun("XDefaultColormap")(self.xdisplay, scrnum);
     }
     function BlackPixel(int scrnum)
     {
@@ -230,10 +240,12 @@ class Display
             var p1 = ptr.alloc();
             var p2 = ptr.alloc();
             var p3 = ptr.alloc();
-            font = getfun("XCreateFontSet")(self.xdisplay,
+            var xfont = getfun("XCreateFontSet")(self.xdisplay,
                     str_to_cstring(fontdesc), p1, p2, p3);
-            if (font == null || ! font)
+            if (xfont == null || ! xfont)
                 return false;
+            font = new Font;
+            font.xfont = xfont;
         }
         self.default_font = font;
         return true;
@@ -247,7 +259,26 @@ class Display
         }
         return font;
     }
+    function CreateFont(string name)
+    {
+        var xdisplay = self.xdisplay;
+        var pname = str_to_cstring(name);
+        var fun = getxftfun("XftFontOpenXlfd");
+        if (fun == null)
+            throw "Xft not available";
+        var xftfont = fun(xdisplay, 0, pname);
+        if (xftfont == null) {
+            xftfont = getxftfun("XftFontOpenName")(xdisplay, 0, pname);
+            if (xftfont == null)
+                return null;
+        }
+        var font = new XftFont;
+        font.xftfont = xftfont;
+        return font;
+    }
 }
+
+//**********************************************************************
 
 class Color
 {
@@ -260,6 +291,41 @@ class Color
     {
         var xcolorview = getxcolorview();
         return int(xcolorview[self.xcolor, 0]);
+    }
+}
+
+//**********************************************************************
+
+class Font
+{
+    var xfont;
+    function DrawString(display, drawable, int x, int y, string str)
+    {
+        var pstr = str_to_cstring(str);
+        int len = bytelength(str);
+        getfun("XmbDrawString")(display.xdisplay, drawable.xdrawable,
+            self.xfont, drawable.getgc().xgc, x, y, pstr, len);
+    }
+}
+
+class XftFont
+{
+    var xftfont;
+    function DrawString(display, drawable, int x, int y, string str)
+    {
+        var visual = display.DefaultVisual();
+        var colormap = display.DefaultColormap();
+        var xdisplay = display.xdisplay;
+        var xdrawable = drawable.xdrawable;
+        var xftdraw = getxftfun("XftDrawCreate")(xdisplay, xdrawable,
+                visual, colormap);
+        var color = getxftcolorview().alloc();
+        getxftfun("XftColorAllocName")(xdisplay, visual, colormap,
+                str_to_cstring("black"), color);
+        var pstr = str_to_cstring(str);
+        int len = bytelength(str);
+        getxftfun("XftDrawStringUtf8")(xftdraw, color, self.xftfont,
+            x, y, pstr, len);
     }
 }
 
@@ -441,6 +507,7 @@ class GraphicContext
 {
     var display;
     var xgc;
+    var font;
     function GraphicContext(display)
     {
         self.display = display;
@@ -519,20 +586,18 @@ class GraphicContext
 
     function DrawString(display, drawable, int x, int y, string str)
     {
-        var xgc = self.xgc;
         var font = drawable.font;
         if (font == null)
             font = display.getDefaultFont();
-        var xdisplay = display.xdisplay;
-        var xdrawable = drawable.xdrawable;
-        var pstr = str_to_cstring(str);
-        var len = bytelength(str);
         if (font != null)
-            getfun("XmbDrawString")(xdisplay, xdrawable,
-                    font, xgc, x, y, pstr, len);
-        else
-            getfun("XDrawString")(xdisplay, xdrawable,
+            font.DrawString(display, drawable, x, y, str);
+        else {
+            var xgc = self.xgc;
+            var pstr = str_to_cstring(str);
+            int len = bytelength(str);
+            getfun("XDrawString")(display.xdisplay, drawable.xdrawable,
                     xgc, x, y, pstr, len);
+        }
     }
 }
 
@@ -575,6 +640,10 @@ class Drawable
     function SetBackground(var color)
     {
         self.owngc().SetBackground(color);
+    }
+    function SetFont(font)
+    {
+        self.font = font;
     }
     function DrawPoint(int x, int y)
     {

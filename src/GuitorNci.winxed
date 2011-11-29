@@ -19,6 +19,7 @@ $include_const "datatypes.pasm";
 // Variable names
 const string
     XLIB          = "winxed_xlib",
+    XFTLIB        = "winxed_xftlib",
     EVENTPAD      = "winxed_eventpad",
     ANYVIEW       = "winxed_anyview",
     BUTTONVIEW    = "winxed_buttonview",
@@ -27,7 +28,8 @@ const string
     STRUCTUREVIEW = "winxed_structureview",
     EXPOSEVIEW    = "winxed_exposeview",
     ATOMVIEW      = "winxed_atomview",
-    XCOLORVIEW    = "winxed_xcolorview";
+    XCOLORVIEW    = "winxed_xcolorview",
+    XFTCOLORVIEW  = "winxed_xftcolorview";
 
 function loadXlib()
 {
@@ -47,12 +49,36 @@ function loadXlib()
     return l;
 }
 
+function loadXftlib()
+{
+    string libs[] = [
+        "libXft",
+        "libXft.so",
+        "libXft.so.2"
+    ];
+    var l;
+    for (string lib in libs) {
+        l= loadlib(lib);
+        if (l) break;
+    }
+    return l;
+}
+
 function getlib()
 {
     var ns = namespace Xlib__private;
     var l = ns[XLIB];
     if (l == null)
         ns[XLIB] = l = loadXlib();
+    return l;
+}
+
+function getxftlib()
+{
+    var ns = namespace Xlib__private;
+    var l = ns[XFTLIB];
+    if (l == null)
+        ns[XFTLIB] = l = loadXftlib();
     return l;
 }
 
@@ -294,6 +320,21 @@ function getxcolorview()
     return st;
 }
 
+function getxftcolorview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[XFTCOLORVIEW];
+    if (st == null)
+        ns[XFTCOLORVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 5,
+            DATATYPE_LONG,  // pixel
+            DATATYPE_SHORT, // red
+            DATATYPE_SHORT, // green
+            DATATYPE_SHORT, // blue
+            DATATYPE_SHORT  // alpha
+        ] );
+    return st;
+}
+
 //**************************************************************
 
 function create_function(string funcname)
@@ -314,6 +355,7 @@ function create_function(string funcname)
         sig = "pip";
         break;
       case "XDefaultGC":
+      case "XDefaultVisual":
       case "XDefaultColormap":
         sig = "ppi";
         break;
@@ -417,6 +459,30 @@ function create_function(string funcname)
     return func;
 }
 
+function create_xft_function(string funcname)
+{
+    string sig;
+    switch (funcname) {
+      case "XftDrawCreate":
+        sig = "ppipp";
+        break;
+      case "XftColorAllocName":
+        sig = "vppppp";
+        break;
+      case "XftFontOpenXlfd":
+      case "XftFontOpenName":
+        sig = "ppip";
+        break;
+      case "XftDrawStringUtf8":
+        sig = "vpppiipi";
+        break;
+      default:
+        throw "Function " + funcname + " unknown";
+    }
+    var func = dlfunc(getxftlib(), funcname, sig);
+    return func;
+}
+
 //**************************************************************
 
 function str_to_cstring(string s)
@@ -448,6 +514,15 @@ function getfun(string funcname)
     var fun = ns[funcname];
     if (fun == null)
         ns[funcname] = fun = create_function(funcname);
+    return fun;
+}
+
+function getxftfun(string funcname)
+{
+    var ns = namespace Xlib__private;
+    var fun = ns[funcname];
+    if (fun == null)
+        ns[funcname] = fun = create_xft_function(funcname);
     return fun;
 }
 
