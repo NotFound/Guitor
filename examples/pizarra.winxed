@@ -69,7 +69,48 @@ class ColorSelector : ChildWindow
             string color = colors[x * 3 + y];
             self.pizarra.setcolor(color);
         }
-        self.Destroy();
+    }
+}
+
+//**********************************************************************
+
+class ToolSelector : ChildWindow
+{
+    const int WIDTH = 50, HEIGHT = 20;
+
+    var pizarra;
+    function ToolSelector(pizarra, int x, int y)
+    {
+        self.pizarra = pizarra;
+        self.ChildWindow(pizarra, x, y, WIDTH + 1, HEIGHT + 1);
+        self.OnExpose += evhandler(self, "onExpose");
+        self.OnButtonPress += evhandler(self, "onButtonPress");
+        self.Map();
+    }
+    function onExpose(event)
+    {
+        self.SetForeground("black");
+        self.DrawLine(    0,      0, WIDTH, 0);
+        self.DrawLine(WIDTH,      0, WIDTH, HEIGHT);
+        self.DrawLine(WIDTH, HEIGHT,     0, HEIGHT);
+        self.DrawLine(    0, HEIGHT,     0, 0);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 1; ++j)
+                self.DrawRectangle( 2 + i * 16, 2 + j * 16, 14, 14);
+        self.DrawLine(4,  4, 7, 10);
+        self.DrawLine(7, 10, 10, 5);
+        self.DrawRectangle(20, 4, 10, 10);
+        self.FillRectangle(36, 4, 11, 11);
+    }
+    function onButtonPress(event)
+    {
+        int x = event.x();
+        int y = event.y();
+        x = x / 16;
+        y = y / 16;
+        if (x >= 0 || x < 3 || y >= 0 || y < 1) {
+            self.pizarra.setmode(x);
+        }
     }
 }
 
@@ -185,8 +226,68 @@ class FillRectangle : BaseRectangle
 
 class Pizarra : TopLevelWindow
 {
+    var width;
+    var height;
+    var board;
+    function Pizarra(controller)
+    {
+        string title = "pizarra";
+        int width = 600;
+        int height = 400;
+        self.width = width;
+        self.height = height;
+        self.TopLevelWindow(controller, title, 0, 0, width, height,
+                { "background_color" : controller.display.ParseColor("grey") } );
+        controller.created(self);
+
+        self.OnDestroy += function (event)
+        {
+            self.controller.destroyed(self);
+        };
+        self.OnConfigure += function (event) { self.onConfigure(event); };
+        self.OnClientMessage += function (event) { self.onClientMessage(event); };
+
+        self.board = new Board(self, 54, 2, width - 56, height - 4);
+        self.board.Map();
+        new ColorSelector(self, 1, 1);
+        new ToolSelector(self, 1, 86);
+    }
+    function onConfigure(event)
+    {
+        int nwidth = event.width();
+        int nheight = event.height();
+        var width = self.width;
+        var height = self.height;
+        if (width != nwidth || height != nheight) {
+            if (self.board != null)
+                self.board.ResizeWindow(nwidth - 56, nheight - 4);
+            self.width = nwidth;
+            self.height = nheight;
+        }
+    }
+    function onClientMessage(event)
+    {
+        say('Bye');
+        self.Destroy();
+    }
+
+    function setcolor(string spec)
+    {
+        self.board.setcolor(spec);
+    }
+    function setmode(int mode)
+    {
+        self.board.setmode(mode);
+    }
+}
+
+//**********************************************************************
+
+class Board : ChildWindow
+{
     const int LINE = 0, RECTANGLE = 1, FILLRECT = 2;
 
+    var parent;
     var mode;
     var listline;
     var line;
@@ -196,13 +297,12 @@ class Pizarra : TopLevelWindow
     var oldx;
     var oldy;
     var colorspec;
-    function Pizarra(controller)
+    function Board(parent, int x, int y, int width, int height)
     {
+        self.parent = parent;
         self.mode = LINE;
         self.listline = [];
-        string title = "pizarra";
-        self.TopLevelWindow(controller, title, 0, 0, 600, 400);
-        controller.created(self);
+        self.ChildWindow(parent, x, y, width, height);
         self.pressed = false;
         self.initx = 0;
         self.inity = 0;
@@ -210,25 +310,13 @@ class Pizarra : TopLevelWindow
         self.oldy = 0;
         self.colorspec = "black";
 
-        self.OnDestroy += function (event)
-        {
-            self.controller.destroyed(self);
-        };
-        self.OnConfigure += function (event) { self.onConfigure(event); };
         self.OnExpose += function (event) { self.onExpose(event); };
         self.OnKeyPress += function (event) { self.onKeyPress(event); };
         self.OnButtonPress += function (event) { self.onButtonPress(event); };
         self.OnButtonRelease += function (event) { self.onButtonRelease(event); };
         self.OnMotion += function (event) { self.onMotion(event); };
-        self.OnClientMessage += function (event) { self.onClientMessage(event); };
     }
 
-    function onConfigure(event)
-    {
-        __DEBUG__ && cry(__FUNCTION__,
-                " x: ", event.x(),          " y: ", event.y(),
-                " width: ", event.width(), "  height: ", event.height());
-    }
     function onExpose(event)
     {
         for (var l in self.listline)
@@ -241,12 +329,7 @@ class Pizarra : TopLevelWindow
         string key = display.KeysymToString(display.KeycodeToKeysym(code));
         switch (key) {
           case "Escape":
-            self.Destroy();
-            break;
-          case "c":
-            int x = event.x();
-            int y = event.y();
-            self.opencolorsel(x, y);
+            self.parent.Destroy();
             break;
           case "l":
             self.mode =: LINE;
@@ -346,11 +429,6 @@ class Pizarra : TopLevelWindow
             self.oldy =: y;
         }
     }
-    function onClientMessage(event)
-    {
-        say('Bye');
-        self.Destroy();
-    }
 
     function hintrectangle(int x0, int y0, int x1, int y1)
     {
@@ -377,6 +455,10 @@ class Pizarra : TopLevelWindow
     function setcolor(string spec)
     {
         self.colorspec = spec;
+    }
+    function setmode(int mode)
+    {
+        self.mode =: mode;
     }
 }
 
