@@ -214,10 +214,8 @@ class Display
         int status = fn(xdisplay, colormap, str_to_cstring(spec), xcolor);
         if (status) {
             status = getfun("XAllocColor")(xdisplay, colormap, xcolor);
-            if (status) {
-                int pixel = xcolorview[xcolor, 0];
-                return pixel;
-            }
+            if (status)
+                return new Color(xcolor);
         }
         return null;
     }
@@ -245,6 +243,20 @@ class Display
             font = self.default_font;
         }
         return font;
+    }
+}
+
+class Color
+{
+    var xcolor;
+    function Color(xcolor)
+    {
+        self.xcolor = xcolor;
+    }
+    function pixel()
+    {
+        var xcolorview = getxcolorview();
+        return int(xcolorview[self.xcolor, 0]);
     }
 }
 
@@ -440,8 +452,29 @@ class GraphicContext
 
     function SetForeground(string spec)
     {
-        int pixel = self.display.ParseColor(spec);
-        getfun("XSetForeground")(self.display.xdisplay, self.xgc, pixel);
+        var color = self.display.ParseColor(spec);
+        getfun("XSetForeground")(self.display.xdisplay, self.xgc, color.pixel());
+    }
+    function SetForeground [multi("_", "String")] (spec)
+    {
+        self.SetForeground(string(spec));
+    }
+    function SetForeground(var color)
+    {
+        getfun("XSetForeground")(self.display.xdisplay, self.xgc, color.pixel());
+    }
+    function SetBackground(string spec)
+    {
+        var color = self.display.ParseColor(spec);
+        getfun("XSetBackground")(self.display.xdisplay, self.xgc, color.pixel());
+    }
+    function SetBackground [multi("_", "String")] (spec)
+    {
+        self.SetBackground(string(spec));
+    }
+    function SetBackground(var color)
+    {
+        getfun("XSetBackground")(self.display.xdisplay, self.xgc, color.pixel());
     }
     function SetFunction(display, int func)
     {
@@ -527,6 +560,18 @@ class Drawable
     function SetForeground(string spec)
     {
         self.owngc().SetForeground(spec);
+    }
+    function SetForeground(var color)
+    {
+        self.owngc().SetForeground(color);
+    }
+    function SetBackground(string spec)
+    {
+        self.owngc().SetBackground(spec);
+    }
+    function SetBackground(var color)
+    {
+        self.owngc().SetBackground(color);
     }
     function DrawPoint(int x, int y)
     {
@@ -794,7 +839,7 @@ class ChildWindow : ListenerWindow
         int background = display.WhitePixel(0);
         if (style != null) {
             if (exists style["background_color"])
-                background = style["background_color"];
+                background = style["background_color"].pixel();
         }
         self.xdrawable = display.CreateSimpleChildWindow(parent,
                 x, y, width, height, border_width, border_color, background);

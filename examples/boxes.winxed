@@ -24,6 +24,7 @@ class Boxes : TopLevelWindow
     var x1;
     var y1;
     var pressed;
+    var colors;
     var numcolor;
     function Boxes(controller)
     {
@@ -38,6 +39,19 @@ class Boxes : TopLevelWindow
         self.width = 600;
         self.height = 400;
         self.TopLevelWindow(controller, "Boxes", 0, 0, 600, 400);
+        var display = self.display;
+        self.colors = [
+          display.ParseColor("yellow"),
+          display.ParseColor("red"),
+          display.ParseColor("blue"),
+          display.ParseColor("light steel blue"),
+          display.ParseColor("orange"),
+          display.ParseColor("green"),
+          display.ParseColor("maroon"),
+          display.ParseColor("aquamarine"),
+          display.ParseColor("coral"),
+          display.ParseColor("violet")
+        ];
 
         self.OnConfigure += function (event) { self.onConfigure(event); };
         self.OnExpose += function (event) { self.onExpose(event); };
@@ -189,6 +203,7 @@ class Boxes : TopLevelWindow
         if (width == 0 || height == 0)
             return;
         var boxlist = self.boxlist;
+/*
         string color;
         switch (self.numcolor) {
           case 0: color =  "yellow";           break;
@@ -204,6 +219,11 @@ class Boxes : TopLevelWindow
         }
         var box =  new Box(self, x, y, width, height,
             { "background_color" : self.display.ParseColor(color) } );
+*/
+        var color = self.colors[self.numcolor];
+        var box =  new Box(self, x, y, width, height,
+            { "background_color" : color } );
+
         box.Map();
         int active = elements(boxlist);
         push(boxlist, box);

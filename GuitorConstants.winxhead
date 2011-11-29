@@ -6,29 +6,37 @@
 namespace Guitor
 {
 
+// Line styles
+const int
+    LineSolid =      0,
+    LineOnOffDash =  1,
+    LineDoubleDash = 2;
+
 namespace Events
 {
 
 // Event selection masks
-const int KeyPressMask        = 0x00000001;
-const int KeyReleaseMask      = 0x00000002;
-const int ButtonPressMask     = 0x00000004;
-const int ButtonReleaseMask   = 0x00000008;
-const int EnterWindowMask     = 0x00000010;
-const int LeaveWindowMask     = 0x00000020;
-const int PointerMotionMask   = 0x00000040;
-const int ExposureMask        = 0x00008000;
-const int StructureNotifyMask = 0x00020000;
+const int
+    KeyPressMask        = 0x00000001,
+    KeyReleaseMask      = 0x00000002,
+    ButtonPressMask     = 0x00000004,
+    ButtonReleaseMask   = 0x00000008,
+    EnterWindowMask     = 0x00000010,
+    LeaveWindowMask     = 0x00000020,
+    PointerMotionMask   = 0x00000040,
+    ExposureMask        = 0x00008000,
+    StructureNotifyMask = 0x00020000;
 // Event types
-const int KeyPress        = 2;
-const int KeyRelease      = 3;
-const int ButtonPress     = 4;
-const int ButtonRelease   = 5;
-const int MotionNotify    = 6;
-const int Expose          = 12;
-const int DestroyNotify   = 17;
-const int ConfigureNotify = 22;
-const int ClientMessage   = 33;
+const int
+    KeyPress        =  2,
+    KeyRelease      =  3,
+    ButtonPress     =  4,
+    ButtonRelease   =  5,
+    MotionNotify    =  6,
+    Expose          = 12,
+    DestroyNotify   = 17,
+    ConfigureNotify = 22,
+    ClientMessage   = 33;
 
 }
 
