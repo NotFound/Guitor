@@ -167,28 +167,31 @@ class Display
     {
         __DEBUG__ && cry(__FUNCTION__);
         var fn = getfun("XCreateSimpleWindow");
-        var w = new Window;
-        w.display = self;
-        w.xdrawable = fn(self.xdisplay, parent.xdrawable,
+        return fn(self.xdisplay, parent.xdrawable,
                 x, y, width, height, border_width, border, background);
-        return w;
+    }
+    function CreateSimpleWindow(int x, int y, int width, int height,
+        int border_width, int border, int background)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        var fn = getfun("XCreateSimpleWindow");
+        return fn(self.xdisplay, self._RootWindow(0),
+                x, y, width, height, border_width, border, background);
     }
     function CreateSimpleWindow(int x, int y, int width, int height)
     {
         __DEBUG__ && cry(__FUNCTION__);
         var fn = getfun("XCreateSimpleWindow");
-        var xw = fn(self.xdisplay, self._RootWindow(0), x, y, width, height,
+        return fn(self.xdisplay, self._RootWindow(0), x, y, width, height,
                 0, self.BlackPixel(0), self.WhitePixel(0));
-        return xw;
     }
     function CreateSimpleChildWindow(parent, x, y, width, height,
             int border_width, int border_color, int background)
     {
         __DEBUG__ && cry(__FUNCTION__);
         var fn = getfun("XCreateSimpleWindow");
-        var xw = fn(self.xdisplay, parent.xdrawable, x, y, width, height,
+        return fn(self.xdisplay, parent.xdrawable, x, y, width, height,
                 border_width, border_color, background);
-        return xw;
     }
     function NextEvent(var event)
     {
@@ -652,6 +655,10 @@ class Window : Drawable
     {
         getfun("XMoveWindow")(self.display.xdisplay, self.xdrawable, x, y);
     }
+    function ResizeWindow(int width, int height)
+    {
+        getfun("XResizeWindow")(self.display.xdisplay, self.xdrawable, width, height);
+    }
     function RaiseWindow()
     {
         getfun("XRaiseWindow")(self.display.xdisplay, self.xdrawable);
@@ -815,12 +822,19 @@ class TopLevelWindow : ListenerWindow
 {
     var controller;
     function TopLevelWindow(controller, string title,
-            int x, int y, int width, int height)
+            int x, int y, int width, int height,
+            style[optional])
     {
         __DEBUG__ && cry(__FUNCTION__);
         var display = controller.display;
         self.display = display;
-        self.xdrawable = display.CreateSimpleWindow(x, y, width, height);
+        int background = display.WhitePixel(0);
+        if (style != null) {
+            if (exists style["background_color"])
+                background = style["background_color"].pixel();
+        }
+        self.xdrawable = display.CreateSimpleWindow(x, y, width, height,
+                0, 0, background);
         self.StoreName(title);
         self.ListenerWindow(controller);
     }
