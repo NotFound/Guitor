@@ -34,6 +34,7 @@ extern function getkeyview;
 extern function getxcolorview;
 extern function getxftcolorview;
 extern function getatomview;
+extern function getglyphifnoview;
 extern function getview;
 
 extern function newAtomlist;
@@ -326,6 +327,14 @@ class XftFont
         int len = bytelength(str);
         getxftfun("XftDrawStringUtf8")(xftdraw, color, self.xftfont,
             x, y, pstr, len);
+    }
+    function getTextWidth(display, string text)
+    {
+        var view = getglyphifnoview();
+        var glyphinfo = view.alloc();
+        getxftfun("XftTextExtentsUtf8")(display.xdisplay, self.xftfont,
+                str_to_cstring(text), bytelength(text), glyphinfo);
+        return int(view[glyphinfo, 0]);
     }
 }
 
@@ -676,6 +685,13 @@ class Drawable
     function DrawString(int x, int y, string str)
     {
         self.getgc().DrawString(self.display, self, x, y, str);
+    }
+    function getTextWidth(string text)
+    {
+        var font = self.font;
+        if (font == null)
+            return 0;
+        return font.getTextWidth(self.display, text);
     }
 }
 

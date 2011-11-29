@@ -29,7 +29,8 @@ const string
     EXPOSEVIEW    = "winxed_exposeview",
     ATOMVIEW      = "winxed_atomview",
     XCOLORVIEW    = "winxed_xcolorview",
-    XFTCOLORVIEW  = "winxed_xftcolorview";
+    XFTCOLORVIEW  = "winxed_xftcolorview",
+    GLYPHINFOVIEW = "winxed_glyphinfoview";
 
 function loadXlib()
 {
@@ -335,6 +336,22 @@ function getxftcolorview()
     return st;
 }
 
+function getglyphifnoview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[GLYPHINFOVIEW];
+    if (st == null)
+        ns[GLYPHINFOVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 5,
+            DATATYPE_SHORT, // width
+            DATATYPE_SHORT, // height
+            DATATYPE_SHORT, // x
+            DATATYPE_SHORT, // y
+            DATATYPE_SHORT, // xOff
+            DATATYPE_SHORT  // yOff
+        ] );
+    return st;
+}
+
 //**************************************************************
 
 function create_function(string funcname)
@@ -472,6 +489,9 @@ function create_xft_function(string funcname)
       case "XftFontOpenXlfd":
       case "XftFontOpenName":
         sig = "ppip";
+        break;
+      case "XftTextExtentsUtf8":
+        sig = "vpppip";
         break;
       case "XftDrawStringUtf8":
         sig = "vpppiipi";
