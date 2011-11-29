@@ -523,7 +523,7 @@ class Drawable
     {
         var gc = self.gc;
         if (gc == null)
-            self.gc = new GraphicContext(self.display, self);
+            self.gc = gc = new GraphicContext(self.display, self);
         return gc;
     }
     function SetForeground(string spec)
