@@ -49,13 +49,13 @@ class ColorSelector : ChildWindow
         self.DrawLine(WIDTH, HEIGHT,     0, HEIGHT);
         self.DrawLine(    0, HEIGHT,     0, 0);
         var colors = self.colors;
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 5; ++j) {
+        for (int i = 0; i < 5; ++i)
+            for (int j = 0; j < 3; ++j) {
                 self.SetForeground("black");
-                self.DrawRectangle( 2 + i * 16, 2 + j * 16, 14, 14);
+                self.DrawRectangle(2 + j * 16, 2 + i * 16, 14, 14);
                 string color = colors[i * 3 + j];
                 self.SetForeground(color);
-                self.FillRectangle( 3 + i * 16, 3 + j * 16, 13, 13);
+                self.FillRectangle(3 + j * 16, 3 + i * 16, 13, 13);
             }
     }
     function onButtonPress(event)
@@ -66,7 +66,7 @@ class ColorSelector : ChildWindow
         y = y / 16;
         if (x >= 0 || x < 3 || y >= 0 || y < 5) {
             var colors = self.colors;
-            string color = colors[x * 3 + y];
+            string color = colors[y * 3 + x];
             self.pizarra.setcolor(color);
         }
     }
