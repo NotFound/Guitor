@@ -173,9 +173,9 @@ class Boxes : TopLevelWindow
         self.y =: y;
         self.x1 =: x;
         self.y1 =: y;
-        self.SetFunction(0xa);
-        self.SetLineAttributes(0, 1, 0, 0);
-        self.SetSubwindowMode(1);
+        self.SetFunction(GXinvert);
+        self.SetLineAttributes(0, LineOnOffDash, 0, 0);
+        self.SetSubwindowMode(IncludeInferiors);
     }
     function onButtonRelease(event)
     {
@@ -203,23 +203,6 @@ class Boxes : TopLevelWindow
         if (width == 0 || height == 0)
             return;
         var boxlist = self.boxlist;
-/*
-        string color;
-        switch (self.numcolor) {
-          case 0: color =  "yellow";           break;
-          case 1: color =  "red";              break;
-          case 2: color =  "blue";             break;
-          case 3: color =  "light steel blue"; break;
-          case 4: color =  "orange";           break;
-          case 5: color =  "green";            break;
-          case 6: color =  "maroon";           break;
-          case 7: color =  "aquamarine";       break;
-          case 8: color =  "coral";            break;
-          default: color = "violet";
-        }
-        var box =  new Box(self, x, y, width, height,
-            { "background_color" : self.display.ParseColor(color) } );
-*/
         var color = self.colors[self.numcolor];
         var box =  new Box(self, x, y, width, height,
             { "background_color" : color } );
@@ -228,9 +211,9 @@ class Boxes : TopLevelWindow
         int active = elements(boxlist);
         push(boxlist, box);
         self.activebox =: active;
-        self.SetFunction(0x3);
-        self.SetLineAttributes(0, 0, 0, 0);
-        self.SetSubwindowMode(0);
+        self.SetFunction(GXcopy);
+        self.SetLineAttributes(0, LineSolid, 0, 0);
+        self.SetSubwindowMode(ClipByChildren);
     }
     function onMotion(event)
     {

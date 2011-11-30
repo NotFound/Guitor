@@ -213,9 +213,9 @@ class Graph : TopLevelWindow
         self.yp0 = y;
         self.xp1 = x;
         self.yp1 = y;
-        self.SetFunction(0xa);
-        self.SetLineAttributes(0, 1, 0, 0);
-        self.SetSubwindowMode(1);
+        self.SetFunction(GXinvert);
+        self.SetLineAttributes(0, LineOnOffDash, 0, 0);
+        self.SetSubwindowMode(IncludeInferiors);
     }
     function onButtonRelease(event)
     {
@@ -228,9 +228,9 @@ class Graph : TopLevelWindow
         int nxp1 = self.xp1;
         int nyp1 = self.yp1;
         self.rectangle(xp0, yp0, nxp1, nyp1);
-        self.SetFunction(0x3);
-        self.SetLineAttributes(0, 0, 0, 0);
-        self.SetSubwindowMode(0);
+        self.SetFunction(GXcopy);
+        self.SetLineAttributes(0, LineSolid, 0, 0);
+        self.SetSubwindowMode(ClipByChildren);
         int nxp0 = xp0;
         if (nxp0 > nxp1) {
             nxp0 = nxp1;

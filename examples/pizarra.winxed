@@ -367,9 +367,9 @@ class Board : ChildWindow
         switch (self.mode) {
           case RECTANGLE:
           case FILLRECT:
-            self.SetFunction(0xa);
-            self.SetLineAttributes(0, 1, 0, 0);
-            self.SetSubwindowMode(1);
+            self.SetFunction(GXinvert);
+            self.SetLineAttributes(0, LineOnOffDash, 0, 0);
+            self.SetSubwindowMode(IncludeInferiors);
             break;
         }
     }
@@ -388,9 +388,9 @@ class Board : ChildWindow
           case RECTANGLE:
           case FILLRECT:
             self.hintrectangle(initx, inity, oldx, oldy);
-            self.SetFunction(0x3);
-            self.SetLineAttributes(0, 0, 0, 0);
-            self.SetSubwindowMode(0);
+            self.SetFunction(GXcopy);
+            self.SetLineAttributes(0, LineSolid, 0, 0);
+            self.SetSubwindowMode(ClipByChildren);
             var r = self.mode == RECTANGLE ?
                 new Rectangle(colorspec, initx, inity, oldx, oldy) :
                 new FillRectangle(colorspec, initx, inity, oldx, oldy);
