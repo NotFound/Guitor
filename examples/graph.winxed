@@ -254,15 +254,17 @@ class Graph : TopLevelWindow
             float y = y0 + (float(height - j) / height) * (y1 - y0);
             self.SetForeground("white");
             self.FillRectangle(4, 4, 280, 42);
-            self.SetForeground("black");
             string sx = "x: " + string(x);
             string sy = "y: " + string(y);
-            self.DrawString(12, 22, sx);
-            self.DrawString(12, 38, sy);
             int lx = self.getTextWidth(sx);
             int ly = self.getTextWidth(sy);
             if (ly > lx)
                 lx = ly;
+            self.SetForeground("gray");
+            self.FillRectangle(4, 4, lx + 16, 41);
+            self.SetForeground("black");
+            self.DrawString(12, 22, sx);
+            self.DrawString(12, 38, sy);
             self.DrawRectangle(4, 4, lx + 16, 41);
             return;
         }
