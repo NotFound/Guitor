@@ -1,0 +1,128 @@
+#! winxed
+
+// text example
+
+$load "Guitor.pbc";
+
+$include "Guitor.winxhead";
+
+using namespace Guitor;
+using namespace Guitor.Events;
+
+//**********************************************************************
+
+class TextWindow : TopLevelWindow
+{
+    var width;
+    var height;
+    var text;
+    var font;
+    var chunks;
+    function TextWindow(controller, string text, string fontname)
+    {
+        if (fontname == null)
+            fontname = "courier-12";
+        self.text = text;
+        self.width = 600;
+        self.height = 400;
+        self.TopLevelWindow(controller, "Text and fonts test", 0, 0, 600, 400);
+        var display = self.display;
+
+        var font = display.CreateFont(fontname);
+        self.SetFont(font);
+        self.font = font;
+
+        self.OnConfigure += function (event) { self.onConfigure(event); };
+        self.OnExpose += function (event) { self.onExpose(event); };
+        self.OnKeyPress += function (event) { self.onKeyPress(event); };
+        self.OnClientMessage += function (event) { self.onClientMessage(event); };
+        self.OnDestroy += function (event)
+        {
+            var controller = self.controller;
+            controller.unregister(self);
+            controller.Quit();
+        };
+    }
+
+    function onConfigure(event)
+    {
+        int width = event.width();
+        self.width =: width;
+        self.height =: int(event.height());
+        var font = self.font;
+        var display = self.display;
+        string text = self.text;
+        int chunks[] = [ ];
+        int p = 0;
+        while (font.getTextWidth(display, substr(text, p)) >= width) {
+            int q = indexof(text, " ", p);
+            if (q < 0)
+                break;
+            int q1 = q;
+            while (font.getTextWidth(display, substr(text, p, q1 - p)) < width) {
+                q = q1;
+                q1 = indexof(text, " ", q + 1);
+                if (q1 < 0)
+                    break;
+            }
+            p = q + 1;
+            push(chunks, p);
+        }
+        self.chunks = chunks;
+    }
+    function onExpose(event)
+    {
+        string text = self.text;
+        int pos = 0;
+        int hfont = self.font.getHeight();
+        int y = hfont;
+        for (int p in self.chunks) {
+            self.DrawString(0, y, substr(self.text, pos, p - pos));
+            pos = p;
+            y += hfont;
+        }
+        self.DrawString(0, y, substr(self.text, pos));
+    }
+    function onKeyPress(event)
+    {
+        var display = self.display;
+        int code = event.keycode();
+        string key = display.KeysymToString(display.KeycodeToKeysym(code));
+        switch (key) {
+          case "Escape":
+            self.Destroy();
+            break;
+        }
+    }
+    function onClientMessage(event)
+    {
+        self.Destroy();
+    }
+}
+
+//**********************************************************************
+
+function main(args)
+{
+    string text;
+    string font;
+    int nargs = elements(args);
+    var controller = new Controller();
+    if (nargs > 1)
+        text = args[1];
+    else
+        text = "Hello, world!";
+    if (nargs > 2)
+        font = args[2];
+
+    var textwindow = new TextWindow(controller, text, font);
+    textwindow.SetWMProtocols(['WM_DELETE_WINDOW']);
+    textwindow.Map();
+
+    controller.MainLoop();
+
+    say('End');
+    controller.Close();
+}
+
+// End.

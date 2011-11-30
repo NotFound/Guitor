@@ -30,6 +30,7 @@ const string
     ATOMVIEW      = "winxed_atomview",
     XCOLORVIEW    = "winxed_xcolorview",
     XFTCOLORVIEW  = "winxed_xftcolorview",
+    XFTFONTVIEW   = "winxed_xftfontview",
     GLYPHINFOVIEW = "winxed_glyphinfoview";
 
 function loadXlib()
@@ -336,7 +337,7 @@ function getxftcolorview()
     return st;
 }
 
-function getglyphifnoview()
+function getglyphinfoview()
 {
     var ns = namespace Xlib__private;
     var st = ns[GLYPHINFOVIEW];
@@ -348,6 +349,22 @@ function getglyphifnoview()
             DATATYPE_SHORT, // y
             DATATYPE_SHORT, // xOff
             DATATYPE_SHORT  // yOff
+        ] );
+    return st;
+}
+
+function getxftfontview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[XFTFONTVIEW];
+    if (st == null)
+        ns[XFTFONTVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 5,
+            DATATYPE_INT, // ascent
+            DATATYPE_INT, // descent
+            DATATYPE_INT, // height
+            DATATYPE_INT, // max_advance_width
+            DATATYPE_PTR, // charset
+            DATATYPE_PTR  // pattern
         ] );
     return st;
 }

@@ -33,8 +33,9 @@ extern function getbuttonview;
 extern function getkeyview;
 extern function getxcolorview;
 extern function getxftcolorview;
+extern function getxftfontview;
 extern function getatomview;
-extern function getglyphifnoview;
+extern function getglyphinfoview;
 extern function getview;
 
 extern function newAtomlist;
@@ -328,9 +329,14 @@ class XftFont
         getxftfun("XftDrawStringUtf8")(xftdraw, color, self.xftfont,
             x, y, pstr, len);
     }
+    function getHeight()
+    {
+        var view = getxftfontview();
+        return int(view[self.xftfont, 2]);
+    }
     function getTextWidth(display, string text)
     {
-        var view = getglyphifnoview();
+        var view = getglyphinfoview();
         var glyphinfo = view.alloc();
         getxftfun("XftTextExtentsUtf8")(display.xdisplay, self.xftfont,
                 str_to_cstring(text), bytelength(text), glyphinfo);
