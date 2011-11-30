@@ -34,6 +34,7 @@ extern function getkeyview;
 extern function getxcolorview;
 extern function getxftcolorview;
 extern function getxftfontview;
+extern function getxfontview;
 extern function getatomview;
 extern function getglyphinfoview;
 extern function getview;
@@ -307,6 +308,15 @@ class Font
         int len = bytelength(str);
         getfun("XmbDrawString")(display.xdisplay, drawable.xdrawable,
             self.xfont, drawable.getgc().xgc, x, y, pstr, len);
+    }
+    function getHeight()
+    {
+        var view = getxfontview();
+        return int(view[self.xfont, 22]) + int(view[self.xfont, 23]);
+    }
+    function getTextWidth(display, string text)
+    {
+        return int(getfun("XmbTextEscapement")(self.xfont, str_to_cstring(text), bytelength(text)));
     }
 }
 

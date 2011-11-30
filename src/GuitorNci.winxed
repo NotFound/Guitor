@@ -30,6 +30,7 @@ const string
     ATOMVIEW      = "winxed_atomview",
     XCOLORVIEW    = "winxed_xcolorview",
     XFTCOLORVIEW  = "winxed_xftcolorview",
+    XFONTVIEW     = "winxed_xfontview",
     XFTFONTVIEW   = "winxed_xftfontview",
     GLYPHINFOVIEW = "winxed_glyphinfoview";
 
@@ -353,6 +354,42 @@ function getglyphinfoview()
     return st;
 }
 
+function getxfontview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[XFONTVIEW];
+    if (st == null)
+        ns[XFONTVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 24,
+            DATATYPE_PTR, // ext_data
+            DATATYPE_INT, // fid
+            DATATYPE_INT, // direction
+            DATATYPE_INT, // min_char_or_byte2
+            DATATYPE_INT, // max_char_or_byte2
+            DATATYPE_INT, // min_byte1
+            DATATYPE_INT, // max_byte1
+            XLIB_Bool,     // all_chars_exists
+            DATATYPE_INT, // default_char
+            DATATYPE_INT,   // n_properties
+            DATATYPE_PTR,   // properties
+            // min_bounds
+            DATATYPE_SHORT, // lbearing
+            DATATYPE_SHORT, // rbearing
+            DATATYPE_SHORT, // width
+            DATATYPE_SHORT, // ascent
+            DATATYPE_SHORT, // descent
+            // max_bounds
+            DATATYPE_SHORT, // lbearing
+            DATATYPE_SHORT, // rbearing
+            DATATYPE_SHORT, // width
+            DATATYPE_SHORT, // ascent
+            DATATYPE_SHORT, // descent
+            DATATYPE_PTR, // per_char
+            DATATYPE_INT, // ascent
+            DATATYPE_INT  // descent
+        ] );
+    return st;
+}
+
 function getxftfontview()
 {
     var ns = namespace Xlib__private;
@@ -469,6 +506,10 @@ function create_function(string funcname)
         break;
       case "XAllocColor":
         sig = "ippp";
+        break;
+      case "XTextWidth":
+      case "XmbTextEscapement":
+        sig = "ippi";
         break;
       case "XDrawString":
         sig = "vpipiipi";

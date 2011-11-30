@@ -28,7 +28,8 @@ class TextWindow : TopLevelWindow
         self.TopLevelWindow(controller, "Text and fonts test", 0, 0, 600, 400);
         var display = self.display;
 
-        var font = display.CreateFont(fontname);
+        //var font = display.CreateFont(fontname);
+        var font = display.getDefaultFont();
         self.SetFont(font);
         self.font = font;
 
