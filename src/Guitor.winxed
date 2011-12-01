@@ -20,6 +20,7 @@ $include_const "datatypes.pasm";
 namespace Xlib__private
 {
 
+extern function str_to_achar_utf8;
 extern function str_to_cstring;
 extern function string_from_nci;
 extern function getfun;
@@ -54,6 +55,7 @@ using namespace Events;
 class Display
 {
     var xdisplay;
+    var default_screen;
     var default_font;
 
     function Display(string displayname[optional])
@@ -66,6 +68,7 @@ class Display
         self.xdisplay = getfun("XOpenDisplay")(d);
         getfun("setlocale")(0, str_to_cstring(""));
         getfun("XSetLocaleModifiers")(str_to_cstring(""));
+        self.default_screen = self._DefaultScreen();
     }
     function Close()
     {
@@ -74,10 +77,14 @@ class Display
         self.xdisplay = null;
         __DEBUG__ && cry("closed");
     }
-    function DefaultScreen()
+    function _DefaultScreen()
     {
         int scrnum = getfun("XDefaultScreen")(self.xdisplay);
         return scrnum;
+    }
+    function DefaultScreen()
+    {
+        return int(self.default_screen);
     }
     function DefaultDepth(int scrnum)
     {
@@ -158,7 +165,7 @@ class Display
     function DefaultGC()
     {
         var fn = getfun("XDefaultGC");
-        return fn(self.xdisplay, self.DefaultScreen());
+        return fn(self.xdisplay, self.default_screen);
     }
     function _RootWindow(int scrnum)
     {
@@ -223,16 +230,27 @@ class Display
     function ParseColor(string spec)
     {
         var xdisplay = self.xdisplay;
-        var fn = getfun("XParseColor");
-        var colormap = getfun("XDefaultColormap")(xdisplay, 0);
+        var colormap = self.DefaultColormap();
+/*
         var xcolorview = getxcolorview();
         var xcolor = xcolorview.alloc();
-        int status = fn(xdisplay, colormap, str_to_cstring(spec), xcolor);
+        int status = getfun("XParseColor")(xdisplay, colormap, str_to_cstring(spec), xcolor);
         if (status) {
             status = getfun("XAllocColor")(xdisplay, colormap, xcolor);
             if (status)
                 return new Color(xcolor);
         }
+*/
+        var xftcolorview = getxftcolorview();
+        var xftcolor = xftcolorview.alloc();
+        var visual = self.DefaultVisual();
+        if (getxftfun("XftColorAllocName")(xdisplay, visual, colormap,
+                str_to_cstring(spec), xftcolor)) {
+            var color = new XftColor;
+            color.xftcolor = xftcolor;
+            return color;
+        }
+
         return null;
     }
     function setDefaultFont(string fontdesc)
@@ -247,7 +265,7 @@ class Display
                     str_to_cstring(fontdesc), p1, p2, p3);
             if (xfont == null || ! xfont)
                 return false;
-            font = new Font;
+            font = new FontSet;
             font.xfont = xfont;
         }
         self.default_font = font;
@@ -297,9 +315,20 @@ class Color
     }
 }
 
+class XftColor
+{
+    var xftcolor;
+    function pixel()
+    {
+        var xftcolorview = getxftcolorview();
+        int pixel = xftcolorview[self.xftcolor, 0];
+        return pixel;
+    }
+}
+
 //**********************************************************************
 
-class Font
+class FontSet
 {
     var xfont;
     function DrawString(display, drawable, int x, int y, string str)
@@ -307,6 +336,13 @@ class Font
         var pstr = str_to_cstring(str);
         int len = bytelength(str);
         getfun("XmbDrawString")(display.xdisplay, drawable.xdrawable,
+            self.xfont, drawable.getgc().xgc, x, y, pstr, len);
+    }
+    function DrawImageString(display, drawable, int x, int y, string str)
+    {
+        var pstr = str_to_cstring(str);
+        int len = bytelength(str);
+        getfun("XmbDrawImageString")(display.xdisplay, drawable.xdrawable,
             self.xfont, drawable.getgc().xgc, x, y, pstr, len);
     }
     function getHeight()
@@ -325,19 +361,81 @@ class XftFont
     var xftfont;
     function DrawString(display, drawable, int x, int y, string str)
     {
+        if (length(str) == 0)
+            return;
+
         var visual = display.DefaultVisual();
         var colormap = display.DefaultColormap();
         var xdisplay = display.xdisplay;
         var xdrawable = drawable.xdrawable;
-        var xftdraw = getxftfun("XftDrawCreate")(xdisplay, xdrawable,
-                visual, colormap);
         var color = getxftcolorview().alloc();
         getxftfun("XftColorAllocName")(xdisplay, visual, colormap,
                 str_to_cstring("black"), color);
-        var pstr = str_to_cstring(str);
-        int len = bytelength(str);
+        var pstr = str_to_achar_utf8(str);
+        int len = elements(pstr);
+        var xftdraw = getxftfun("XftDrawCreate")(xdisplay, xdrawable,
+                visual, colormap);
         getxftfun("XftDrawStringUtf8")(xftdraw, color, self.xftfont,
             x, y, pstr, len);
+    }
+    function DrawImageString(display, drawable, int x, int y, string str)
+    {
+        if (length(str) == 0)
+            return;
+        var pstr = str_to_achar_utf8(str);
+        int len = elements(pstr);
+
+        var xdisplay = display.xdisplay;
+        var xdrawable = drawable.xdrawable;
+        var xftfont = self.xftfont;
+        var fview = getxftfontview();
+        int ascent = fview[xftfont, 0];
+        var tview = getglyphinfoview();
+        var glyphinfo = tview.alloc();
+        getxftfun("XftTextExtentsUtf8")(display.xdisplay, xftfont,
+                pstr, len, glyphinfo);
+        int top  = y - tview[glyphinfo, 3];
+        int left = x - tview[glyphinfo, 2];
+        int width = tview[glyphinfo, 0];
+        int height = tview[glyphinfo, 1];
+
+        var visual = display.DefaultVisual();
+        var colormap = display.DefaultColormap();
+        var xftdraw = getxftfun("XftDrawCreate")(xdisplay, xdrawable,
+                visual, colormap);
+
+        var gc = drawable.getgc();
+        var xcolor;
+        var color = gc.getForeground();
+        if (color != null)
+            xcolor = color.xftcolor;
+        if (xcolor == null) {
+            color = display.ParseColor("black");
+            xcolor = color.xftcolor;
+        }
+
+        var xbgcolor;
+        var bgcolor = gc.getBackground();
+        if (bgcolor != null)
+            xbgcolor = bgcolor.xftcolor;
+        if (xbgcolor == null) {
+            bgcolor = display.ParseColor("white");
+            xbgcolor = bgcolor.xftcolor;
+        }
+
+        getxftfun("XftDrawRect")(xftdraw, xbgcolor, left, top, width, height);
+        getxftfun("XftDrawStringUtf8")(xftdraw, xcolor, xftfont,
+            x, y, pstr, len);
+    }
+    function getAscent()
+    {
+        var view = getxftfontview();
+        return int(view[self.xftfont, 0]);
+    }
+    function getDescent()
+    {
+        var view = getxftfontview();
+        return int(view[self.xftfont, 1]);
     }
     function getHeight()
     {
@@ -346,10 +444,12 @@ class XftFont
     }
     function getTextWidth(display, string text)
     {
+        var pstr = str_to_achar_utf8(text);
+        int len = elements(pstr);
         var view = getglyphinfoview();
         var glyphinfo = view.alloc();
         getxftfun("XftTextExtentsUtf8")(display.xdisplay, self.xftfont,
-                str_to_cstring(text), bytelength(text), glyphinfo);
+                pstr, len, glyphinfo);
         return int(view[glyphinfo, 0]);
     }
 }
@@ -532,6 +632,8 @@ class GraphicContext
 {
     var display;
     var xgc;
+    var color;
+    var bgcolor;
     var font;
     function GraphicContext(display)
     {
@@ -548,7 +650,10 @@ class GraphicContext
     function SetForeground(string spec)
     {
         var color = self.display.ParseColor(spec);
-        getfun("XSetForeground")(self.display.xdisplay, self.xgc, color.pixel());
+        if (color != null) {
+            self.color = color;
+            getfun("XSetForeground")(self.display.xdisplay, self.xgc, color.pixel());
+        }
     }
     function SetForeground [multi("_", "String")] (spec)
     {
@@ -556,12 +661,16 @@ class GraphicContext
     }
     function SetForeground(var color)
     {
+        self.color = color;
         getfun("XSetForeground")(self.display.xdisplay, self.xgc, color.pixel());
     }
     function SetBackground(string spec)
     {
         var color = self.display.ParseColor(spec);
-        getfun("XSetBackground")(self.display.xdisplay, self.xgc, color.pixel());
+        if (color != null)  {
+            self.bgcolor = color;
+            getfun("XSetBackground")(self.display.xdisplay, self.xgc, color.pixel());
+        }
     }
     function SetBackground [multi("_", "String")] (spec)
     {
@@ -569,7 +678,16 @@ class GraphicContext
     }
     function SetBackground(var color)
     {
+        self.bgcolor = color;
         getfun("XSetBackground")(self.display.xdisplay, self.xgc, color.pixel());
+    }
+    function getForeground()
+    {
+        return self.color;
+    }
+    function getBackground()
+    {
+        return self.bgcolor;
     }
     function SetFunction(display, int func)
     {
@@ -621,6 +739,21 @@ class GraphicContext
             var pstr = str_to_cstring(str);
             int len = bytelength(str);
             getfun("XDrawString")(display.xdisplay, drawable.xdrawable,
+                    xgc, x, y, pstr, len);
+        }
+    }
+    function DrawImageString(display, drawable, int x, int y, string str)
+    {
+        var font = drawable.font;
+        if (font == null)
+            font = display.getDefaultFont();
+        if (font != null)
+            font.DrawImageString(display, drawable, x, y, str);
+        else {
+            var xgc = self.xgc;
+            var pstr = str_to_cstring(str);
+            int len = bytelength(str);
+            getfun("XDrawImageString")(display.xdisplay, drawable.xdrawable,
                     xgc, x, y, pstr, len);
         }
     }
@@ -701,6 +834,10 @@ class Drawable
     function DrawString(int x, int y, string str)
     {
         self.getgc().DrawString(self.display, self, x, y, str);
+    }
+    function DrawImageString(int x, int y, string str)
+    {
+        self.getgc().DrawImageString(self.display, self, x, y, str);
     }
     function getTextWidth(string text)
     {

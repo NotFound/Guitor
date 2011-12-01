@@ -343,7 +343,7 @@ function getglyphinfoview()
     var ns = namespace Xlib__private;
     var st = ns[GLYPHINFOVIEW];
     if (st == null)
-        ns[GLYPHINFOVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 5,
+        ns[GLYPHINFOVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 6,
             DATATYPE_SHORT, // width
             DATATYPE_SHORT, // height
             DATATYPE_SHORT, // x
@@ -512,9 +512,11 @@ function create_function(string funcname)
         sig = "ippi";
         break;
       case "XDrawString":
+      case "XDrawImageString":
         sig = "vpipiipi";
         break;
       case "XmbDrawString":
+      case "XmbDrawImageString":
       case "Xutf8DrawString":
         sig = "vpippiipi";
         break;
@@ -541,8 +543,11 @@ function create_xft_function(string funcname)
       case "XftDrawCreate":
         sig = "ppipp";
         break;
+      case "XftDrawRect":
+        sig = "vppiiii";
+        break;
       case "XftColorAllocName":
-        sig = "vppppp";
+        sig = "ippppp";
         break;
       case "XftFontOpenXlfd":
       case "XftFontOpenName":
@@ -562,6 +567,13 @@ function create_xft_function(string funcname)
 }
 
 //**************************************************************
+
+function str_to_achar_utf8(string s)
+{
+    var cstring = new ["ByteBuffer"];
+    cstring =: trans_encoding(s, "utf8");
+    return cstring;
+}
 
 function str_to_cstring(string s)
 {
