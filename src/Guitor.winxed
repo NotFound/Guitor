@@ -889,6 +889,11 @@ class Window : Drawable
         getfun("XClearArea")(self.display.xdisplay, self.xdrawable,
                 x, y, width, height, exposures);
     }
+    function SetInputFocus(int revert_to)
+    {
+        getfun("XSetInputFocus")(self.display.xdisplay. self.xdrawable,
+            revert_to, CurrentTime);
+    }
     function MoveWindow(int x, int y)
     {
         getfun("XMoveWindow")(self.display.xdisplay, self.xdrawable, x, y);
@@ -1096,6 +1101,52 @@ class ChildWindow : ListenerWindow
         self.xdrawable = display.CreateSimpleChildWindow(parent,
                 x, y, width, height, border_width, border_color, background);
         self.ListenerWindow(parent.controller);
+    }
+}
+
+//**************************************************************
+
+// A barely functional text button to be used in examples and tests
+
+class TextButton : ChildWindow
+{
+    var text;
+    var font;
+    var width;
+    var height;
+    var OnClick;
+    function TextButton(parent, int x, int y, int width, int height, string text, font)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        if (font == null)
+            font = parent.display.CreateFont("courier-10");
+        if (height == 0)
+            height = font.getHeight();
+        if (width == 0) {
+            width = font.getTextWidth(parent.display, text);
+            width += 8;
+        }
+        self.ChildWindow(parent, x, y, width, height);
+        self.width = width;
+        self.height = height;
+        self.text = text;
+        self.font = font;
+        self.OnClick = new EventHandler(self, ButtonPressMask | ButtonReleaseMask);
+        self.OnExpose += function (event)
+        {
+            int width = self.width;
+            int height = self.height;
+            self.DrawRectangle(0, 0, width - 1, height - 1);
+            var font = self.font;
+            string text = self.text;
+            int twidth = self.font.getTextWidth(self.display, text);
+            int tx = (width - twidth) / 2;
+            self.DrawImageString(tx, font.getAscent(), text);
+        };
+        self.OnButtonRelease += function (event)
+        {
+            self.OnClick.handle(event);
+        };
     }
 }
 

@@ -251,6 +251,9 @@ class Pizarra : TopLevelWindow
         self.board.Map();
         new ColorSelector(self, 1, 1);
         new ToolSelector(self, 1, 86);
+        var b = new TextButton(self, 0, 160, 0, 0, "quit", null);
+        b.OnClick += function (event) { self.Destroy(); };
+        b.Map();
     }
     function onConfigure(event)
     {

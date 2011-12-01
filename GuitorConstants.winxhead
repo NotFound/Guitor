@@ -36,6 +36,14 @@ const int
    ClipByChildren   = 0,
    IncludeInferiors = 1;
 
+const int CurrentTime = 0;
+
+// Focus revert type
+const int
+    RevertToNone        = 0,
+    RevertToPointerRoot = 1,
+    RevertToParent      = 2;
+
 namespace Events
 {
 

@@ -456,6 +456,9 @@ function create_function(string funcname)
       case "XRaiseWindow":
         sig = "vpi";
         break;
+      case "XSetInputFocus":
+        sig = "vppil";
+        break;
       case "XSetFunction":
         sig = "vppi";
         break;
