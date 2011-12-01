@@ -452,6 +452,16 @@ class XftFont
                 pstr, len, glyphinfo);
         return int(view[glyphinfo, 0]);
     }
+    function getTextxOff(display, string text)
+    {
+        var pstr = str_to_achar_utf8(text);
+        int len = elements(pstr);
+        var view = getglyphinfoview();
+        var glyphinfo = view.alloc();
+        getxftfun("XftTextExtentsUtf8")(display.xdisplay, self.xftfont,
+                pstr, len, glyphinfo);
+        return int(view[glyphinfo, 4]);
+    }
 }
 
 //**********************************************************************
@@ -1147,6 +1157,188 @@ class TextButton : ChildWindow
         {
             self.OnClick.handle(event);
         };
+    }
+}
+
+//**************************************************************
+
+// A barely functional edit box to be used in examples and tests
+
+class EditBox : ChildWindow
+{
+    var font;
+    var width;
+    var height;
+    var baseline;
+    var text;
+    var pos;
+    var offset;
+    const int MARGINSUP = 2;
+    const int MARGINLEFT = 4;
+    function EditBox(parent, int x, int y, int width, int height, font)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        self.text = '';
+        self.pos = 0;
+        self.offset = 0;
+        if (height == 0)
+            height = font.getHeight() + MARGINSUP;
+	if (width == 0)
+            width = 200;
+        self.height = height;
+        self.baseline = font.getAscent() + MARGINSUP + 1;
+        self.width = width;
+        self.ChildWindow(parent, x, y, width, height);
+        self.SetFont(font);
+        self.font = font;
+        self.OnConfigure += function (event) { self.onconfigure(event); };
+        self.OnExpose += function (event) { self.onexpose(event); };
+        self.OnKeyPress += function (event) { self.onkeypress(event); };
+    }
+    function cursor()
+    {
+        string text = self.text;
+        int pos = self.pos;
+        int height = self.height;
+        var font = self.font;
+        int x = font.getTextxOff(self.display, substr(text, 0, pos)) -
+            self.offset + MARGINLEFT;
+        self.SetFunction(GXinvert);
+        self.DrawLine(x, MARGINSUP + 1, x, self.baseline + 1);
+        self.SetFunction(GXcopy);
+    }
+    function drawall()
+    {
+        self.ClearArea(0, 0, 0, 0, 0);
+        self.DrawImageString(MARGINLEFT - self.offset, MARGINSUP + self.font.getAscent(), self.text);
+        self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
+    }
+    function onconfigure(event)
+    {
+        self.width =: int(event.width());
+        self.height =: int(event.height());
+        self.baseline = self.font.getAscent() + MARGINSUP + 1;
+    }
+    function onexpose(event)
+    {
+        self.drawall();
+        self.cursor();
+    }
+    function onkeypress(event)
+    {
+        var display = self.display;
+        var font = self.font;
+        string text = self.text;
+        int l = length(text);
+        int pos = self.pos;
+        int code = event.keycode();
+        int width = self.width;
+        string key = display.KeysymToString(display.KeycodeToKeysym(code));
+        int offset = self.offset;
+        int x;
+        switch (key) {
+          case "Escape":
+            self.Destroy();
+            return;
+          case "Left":
+            if (pos > 0) {
+                self.cursor();
+                self.pos =: --pos;
+                x = self.getTextWidth(substr(text, 0, pos));
+                if (x < offset) {
+                    offset = x - width / 4;
+                    if (offset < 0)
+                        offset = 0;
+                    self.offset =: offset;
+                    self.drawall();
+                }
+                self.cursor();
+            }
+            return;
+          case "Right":
+            if (pos < l) {
+                self.cursor();
+                self.pos = ++pos;
+                x = self.getTextWidth(substr(text, 0, pos));
+                if (x - offset >= width) {
+                    self.offset =: x - width / 4;
+                    self.drawall();
+                }
+                self.cursor();
+            }
+            return;
+          case "End":
+            self.cursor();
+            self.pos =: l;
+            x = self.getTextWidth(text);
+            if (x - offset > width) {
+                offset = x -  3 * width / 4;
+                if (offset < 0)
+                    offset = 0;
+                self.offset =: offset;
+            }
+            self.drawall();
+            self.cursor();
+            return;
+          case "Home":
+            if (pos != 0) {
+                self.cursor();
+                self.pos =: 0;
+                if (self.offset > 0) {
+                    self.offset =: 0;
+                    self.drawall();
+                }
+                self.cursor();
+            }
+            return;
+          case "Delete":
+            if (pos < l) {
+                self.cursor();
+                text = substr(text, 0, pos) + (pos < l - 1 ? substr(text, pos + 1) : "");
+                self.text =: text;
+                self.drawall();
+                self.cursor();
+            }
+            return;
+          case "BackSpace":
+            if (pos > 0) {
+                self.cursor();
+                text = substr(text, 0, pos - 1) + (pos < l ? substr(text, pos) : "");
+                --pos;
+                self.text =: text;
+                self.pos =: pos;
+                x = self.getTextWidth(substr(text, 0, pos));
+                if (x < offset) {
+                    offset -= width / 4;
+                    if (offset < 0)
+                        offset = 0;
+                    self.offset =: offset;
+                }
+                self.drawall();
+                self.cursor();
+            }
+            return;
+          case "space":
+            key = " ";
+            break;
+        }
+        key = display.LookupString(event);
+        if (length(key) < 1)
+            return;
+        self.cursor();
+        pos += length(key);
+        self.pos =: pos;
+        text = text + key;
+        self.text =: text;
+        x = 0;
+        if (pos > 0)
+            x = self.font.getTextxOff(self.display, substr(text, 0, pos));
+
+        if (x - offset >= width)
+            self.offset =: x - width / 4;
+
+        self.drawall();
+        self.cursor();
     }
 }
 

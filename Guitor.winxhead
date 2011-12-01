@@ -13,6 +13,8 @@ class Event;
 class Controller;
 class TopLevelWindow;
 class ChildWindow;
+class TextButton;
+class EditBox;
 
 }
 
