@@ -54,21 +54,39 @@ class TextWindow : TopLevelWindow
         var display = self.display;
         string text = self.text;
         int chunks[] = [ ];
-        int p = 0;
-        while (font.getTextWidth(display, substr(text, p)) >= width) {
-            int q = indexof(text, " ", p);
-            if (q < 0)
-                break;
-            int q1 = q;
-            while (font.getTextWidth(display, substr(text, p, q1 - p)) < width) {
-                q = q1;
-                q1 = indexof(text, " ", q + 1);
-                if (q1 < 0)
+        int len = length(text);
+        string line;
+        int pcurline = 0;
+        int pnextline;
+        do {
+            if (pcurline > 0)
+                push(chunks, pcurline);
+            pnextline = indexof(text, "\n", pcurline);
+            if (pnextline < 0)
+                line = substr(text, pcurline);
+            else
+                line = substr(text, pcurline, pnextline - pcurline);
+
+            int p = 0;
+            while (font.getTextWidth(display, substr(line, p)) >= width) {
+                int q = indexof(line, " ", p);
+                if (q < 0)
                     break;
+                int q1 = q;
+                while (font.getTextWidth(display, substr(line, p, q1 - p)) < width) {
+                    q = q1;
+                    q1 = indexof(line, " ", q + 1);
+                    if (q1 < 0)
+                        break;
+                }
+                p = q + 1;
+                if (p > 0)
+                    push(chunks, pcurline + p);
             }
-            p = q + 1;
-            push(chunks, p);
-        }
+
+            if (pnextline >= 0)
+                pcurline = pnextline + 1;
+        } while (pnextline > 0);
         self.chunks = chunks;
     }
     function onExpose(event)
@@ -78,11 +96,11 @@ class TextWindow : TopLevelWindow
         int hfont = self.font.getHeight();
         int y = hfont;
         for (int p in self.chunks) {
-            self.DrawString(0, y, substr(self.text, pos, p - pos));
+            self.DrawImageString(0, y, substr(self.text, pos, p - pos - 1));
             pos = p;
             y += hfont;
         }
-        self.DrawString(0, y, substr(self.text, pos));
+        self.DrawImageString(0, y, substr(self.text, pos));
     }
     function onKeyPress(event)
     {
@@ -97,6 +115,8 @@ class TextWindow : TopLevelWindow
     }
     function onClientMessage(event)
     {
+        self.text = null;
+        self.chunks = null;
         self.Destroy();
     }
 }
