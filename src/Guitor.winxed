@@ -29,9 +29,11 @@ extern function geteventpad;
 extern function getanyview;
 extern function getstructureview;
 extern function getexposeview;
+extern function getfocusview;
 extern function getmotionview;
 extern function getbuttonview;
 extern function getkeyview;
+extern function getclientview;
 extern function getxcolorview;
 extern function getxftcolorview;
 extern function getxftfontview;
@@ -76,6 +78,10 @@ class Display
         getfun("XCloseDisplay")(self.xdisplay);
         self.xdisplay = null;
         __DEBUG__ && cry("closed");
+    }
+    function Flush()
+    {
+        getfun("XFlush")(self.xdisplay);
     }
     function _DefaultScreen()
     {
@@ -148,18 +154,17 @@ class Display
     function GetAtomName(int atom)
     {
         __DEBUG__ && cry(__FUNCTION__);
-        var fn = dlfunc(getlib(), "XGetAtomName", "tpi");
-        string name = fn(self.xdisplay, atom);
-        return name;
+        var name = getfun("XGetAtomName")(self.xdisplay, atom);
+        return name.as_string("ascii");
     }
     function AtomlistFromStrings(var atomnames)
     {
         __DEBUG__ && cry(__FUNCTION__);
         int natoms = elements(atomnames);
         var aux = newAtomlist(natoms);
-        var ast = getatomview();
+        var ast = getatomview(elements(atomnames));
         for (int i = 0; i < natoms; ++i)
-            ast[aux, i, 0] = int(self.InternAtom(atomnames[i]));
+            ast[aux, i] = int(self.InternAtom(atomnames[i]));
         return aux;
     }
     function DefaultGC()
@@ -571,6 +576,10 @@ class Event
             x_root = view[eventdata, 10];
             y_root = view[eventdata, 11];
             break;
+          case FocusIn:
+          case FocusOut:
+            view   = getfocusview();
+            break;
         }
         self.evx =: x;
         self.evy =: y;
@@ -631,6 +640,24 @@ class Event
     function button()
     {
         return int(self.evbutton);
+    }
+    function message_type()
+    {
+        int type = 0;
+        if (self.evtype == ClientMessage) {
+            var view = getclientview();
+            type = view[self.eventdata, 5];
+        }
+        return type;
+    }
+    function message_data(int n)
+    {
+        int data = 0;
+        if (self.evtype == ClientMessage) {
+            var view = getclientview();
+            data = view[self.eventdata, 7 + n];
+        }
+        return data;
     }
 }
 
@@ -868,6 +895,7 @@ class Window : Drawable
     {
         __DEBUG__ && cry(__FUNCTION__);
         getfun("XDestroyWindow")(self.display.xdisplay, self.xdrawable);
+        self.xdrawable = -1;
     }
     function SelectInput(int eventmask)
     {
@@ -901,8 +929,8 @@ class Window : Drawable
     }
     function SetInputFocus(int revert_to)
     {
-        getfun("XSetInputFocus")(self.display.xdisplay. self.xdrawable,
-            revert_to, CurrentTime);
+        getfun("XSetInputFocus")(self.display.xdisplay, self.xdrawable,
+                revert_to, CurrentTime);
     }
     function MoveWindow(int x, int y)
     {
@@ -1013,6 +1041,8 @@ class ListenerWindow : Window
     var OnButtonRelease;
     var OnMotion;
     var OnDestroy;
+    var OnFocusIn;
+    var OnFocusOut;
     var OnClientMessage;
     function ListenerWindow(controller)
     {
@@ -1024,6 +1054,8 @@ class ListenerWindow : Window
         self.OnButtonRelease = new EventHandler(self, ButtonReleaseMask);
         self.OnMotion = new EventHandler(self, PointerMotionMask);
         self.OnDestroy = new EventHandler(self, StructureNotifyMask);
+        self.OnFocusIn = new EventHandler(self, FocusChangeMask);
+        self.OnFocusOut = new EventHandler(self, FocusChangeMask);
         self.OnClientMessage = new EventHandler(self, 0);
         self.controller = controller;
         controller.register(self);
@@ -1061,6 +1093,12 @@ class ListenerWindow : Window
             break;
           case DestroyNotify:
             handler = self.OnDestroy;
+            break;
+          case FocusIn:
+            handler = self.OnFocusIn;
+            break;
+          case FocusOut:
+            handler = self.OnFocusOut;
             break;
           case ClientMessage:
             handler = self.OnClientMessage;
@@ -1183,7 +1221,7 @@ class EditBox : ChildWindow
         self.offset = 0;
         if (height == 0)
             height = font.getHeight() + MARGINSUP;
-	if (width == 0)
+        if (width == 0)
             width = 200;
         self.height = height;
         self.baseline = font.getAscent() + MARGINSUP + 1;
@@ -1192,11 +1230,15 @@ class EditBox : ChildWindow
         self.SetFont(font);
         self.font = font;
         self.OnConfigure += function (event) { self.onconfigure(event); };
+        self.OnDestroy += function (event) { self.ondestroy(event); };
         self.OnExpose += function (event) { self.onexpose(event); };
         self.OnKeyPress += function (event) { self.onkeypress(event); };
+        self.OnFocusIn += function (event) { self.onfocusin(event); };
+        self.OnFocusOut += function (event) { self.onfocusout(event); };
     }
     function cursor()
     {
+        __DEBUG__ && cry(__FUNCTION__);
         string text = self.text;
         int pos = self.pos;
         int height = self.height;
@@ -1209,23 +1251,49 @@ class EditBox : ChildWindow
     }
     function drawall()
     {
+        __DEBUG__ && cry(__FUNCTION__);
         self.ClearArea(0, 0, 0, 0, 0);
         self.DrawImageString(MARGINLEFT - self.offset, MARGINSUP + self.font.getAscent(), self.text);
         self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
     }
     function onconfigure(event)
     {
+        __DEBUG__ && cry(__FUNCTION__);
         self.width =: int(event.width());
         self.height =: int(event.height());
         self.baseline = self.font.getAscent() + MARGINSUP + 1;
     }
+    function ondestroy(event)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        self.width =: 0;
+        self.controller.unregister(self);
+    }
     function onexpose(event)
     {
-        self.drawall();
-        self.cursor();
+        __DEBUG__ && cry(__FUNCTION__);
+        if (self.width != 0)
+            self.drawall();
+    }
+    function onfocusin(event)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        if (self.width == 0)
+            return;
+        if (event.window() == self.xdrawable)
+            self.cursor();
+    }
+    function onfocusout(event)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        if (self.width == 0)
+            return;
+        if (event.window() == self.xdrawable)
+            self.cursor();
     }
     function onkeypress(event)
     {
+        __DEBUG__ && cry(__FUNCTION__);
         var display = self.display;
         var font = self.font;
         string text = self.text;
@@ -1238,7 +1306,7 @@ class EditBox : ChildWindow
         int x;
         switch (key) {
           case "Escape":
-            self.Destroy();
+            //self.Destroy();
             return;
           case "Left":
             if (pos > 0) {

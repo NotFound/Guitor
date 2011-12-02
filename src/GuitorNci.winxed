@@ -18,21 +18,24 @@ $include_const "datatypes.pasm";
 
 // Variable names
 const string
-    XLIB          = "winxed_xlib",
-    XFTLIB        = "winxed_xftlib",
-    EVENTPAD      = "winxed_eventpad",
-    ANYVIEW       = "winxed_anyview",
-    BUTTONVIEW    = "winxed_buttonview",
-    KEYVIEW       = "winxed_keyview",
-    MOTIONVIEW    = "winxed_motionview",
-    STRUCTUREVIEW = "winxed_structureview",
-    EXPOSEVIEW    = "winxed_exposeview",
-    ATOMVIEW      = "winxed_atomview",
-    XCOLORVIEW    = "winxed_xcolorview",
-    XFTCOLORVIEW  = "winxed_xftcolorview",
-    XFONTVIEW     = "winxed_xfontview",
-    XFTFONTVIEW   = "winxed_xftfontview",
-    GLYPHINFOVIEW = "winxed_glyphinfoview";
+    XLIB          = "guitor_xlib",
+    XFTLIB        = "guitor_xftlib",
+    EVENTPAD      = "guitor_eventpad",
+    ANYVIEW       = "guitor_anyview",
+    BUTTONVIEW    = "guitor_buttonview",
+    KEYVIEW       = "guitor_keyview",
+    MOTIONVIEW    = "guitor_motionview",
+    STRUCTUREVIEW = "guitor_structureview",
+    EXPOSEVIEW    = "guitor_exposeview",
+    FOCUSVIEW     = "guitor_focusview",
+    CLIENTVIEW    = "guitor_clientview",
+    XAWMHINTSVIEW = "guitor_xawmhintsview",
+    ATOMVIEW      = "guitor_atomview",
+    XCOLORVIEW    = "guitor_xcolorview",
+    XFTCOLORVIEW  = "guitor_xftcolorview",
+    XFONTVIEW     = "guitor_xfontview",
+    XFTFONTVIEW   = "guitor_xftfontview",
+    GLYPHINFOVIEW = "guitor_glyphinfoview";
 
 function loadXlib()
 {
@@ -93,6 +96,7 @@ function getxftlib()
 */
 
 const int XLIB_Bool   = DATATYPE_INT32;
+const int XLIB_Atom   = DATATYPE_LONG;
 const int XLIB_time_t = DATATYPE_LONG;
 const int XLIB_Window = DATATYPE_LONG;
 
@@ -232,6 +236,22 @@ function create_exposeview()
     return view;
 }
 
+function create_focusview()
+{
+    int viewdata [] = [
+        DATATYPE_STRUCT, 7,
+        DATATYPE_INT,  // type
+        DATATYPE_LONG, // Serial
+        XLIB_Bool,     // send event
+        DATATYPE_PTR,  // display
+        XLIB_Window,   // window
+        DATATYPE_INT,  // mode
+        DATATYPE_INT   // detail
+    ];
+    var view = new ["StructView"](viewdata);
+    return view;
+}
+
 //**************************************************************
 
 function geteventpad()
@@ -297,13 +317,59 @@ function getexposeview()
     return st;
 }
 
-function getatomview()
+function getfocusview()
 {
     var ns = namespace Xlib__private;
-    var st = ns[ATOMVIEW];
+    var st = ns[FOCUSVIEW];
     if (st == null)
-        ns[ATOMVIEW] = st = new ["StructView"]
-                ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        ns[FOCUSVIEW] = st = create_exposeview();
+    return st;
+}
+
+function getclientview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[CLIENTVIEW];
+    if (st == null)
+        ns[CLIENTVIEW] = st = new ["StructView"] ( [ DATATYPE_STRUCT, 10,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // Serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            DATATYPE_INT,  // window
+            XLIB_Atom,     // message_type
+            DATATYPE_INT,  // format
+            DATATYPE_LONG, // data l 0
+            DATATYPE_LONG, // data l 1
+            DATATYPE_LONG  // data l 2
+        ] );
+    return st;
+}
+
+function getatomview(int n)
+{
+    int init[2 + n] = [ DATATYPE_STRUCT, n ];
+    for (int i = 0; i < n; ++i)
+        init[i + 2] = XLIB_Atom;
+    return new ["StructView"] (init);
+}
+
+function getxawmhints()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[XAWMHINTSVIEW];
+    if (st == null)
+        ns[XAWMHINTSVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 9,
+            DATATYPE_LONG,  // flags
+            XLIB_Bool,      // input
+            DATATYPE_INT,   // initial_state
+            DATATYPE_PTR,   // icon_pixmap
+            DATATYPE_PTR,   // icon_window
+            DATATYPE_INT,   // icon_x
+            DATATYPE_INT,   // icon_y
+            DATATYPE_PTR,   // icon_mask
+            DATATYPE_PTR    // window_group
+        ] );
     return st;
 }
 
@@ -412,6 +478,9 @@ function create_function(string funcname)
 {
     string sig;
     switch (funcname) {
+      case "XFlush":
+        sig = "vp";
+        break;
       case "XDisplayName":
       case "XOpenDisplay":
         sig = "pp";
@@ -457,7 +526,7 @@ function create_function(string funcname)
         sig = "vpi";
         break;
       case "XSetInputFocus":
-        sig = "vppil";
+        sig = "vpiil";
         break;
       case "XSetFunction":
         sig = "vppi";
@@ -479,6 +548,9 @@ function create_function(string funcname)
         break;
       case "XInternAtom":
         sig = "ippi";
+        break;
+      case "XGetAtomName":
+        sig = "ppl";
         break;
       case "XStoreName":
         sig = "ipip";
@@ -596,8 +668,8 @@ function string_from_nci(p)
 
 function newAtomlist(int n)
 {
-    var view = getatomview();
-    var data = view.alloc(n);
+    var view = getatomview(n);
+    var data = view.alloc();
     return data;
 }
 

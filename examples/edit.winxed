@@ -1,0 +1,93 @@
+#! winxed
+
+// text example
+
+$load "Guitor.pbc";
+
+$include "Guitor.winxhead";
+
+using namespace Guitor;
+using namespace Guitor.Events;
+
+//**********************************************************************
+
+class EditWindow : TopLevelWindow
+{
+    var width;
+    var height;
+    var edit;
+    var alive;
+    function EditWindow(controller, string fontname)
+    {
+        var font = controller.display.CreateFont(fontname);
+        int width = 200;
+        int height = font.getHeight();
+        self.width = width;
+        self.height = height;
+        self.TopLevelWindow(controller, "Edit test",
+            4, 4, width + 10, height + 10);
+        self.SetWMProtocols(['WM_TAKE_FOCUS', 'WM_DELETE_WINDOW' ]);
+
+        var edit = new EditBox(self, 4, 4, 0, 0, font);
+        self.edit = edit;
+        self.alive = true;
+        edit.Map();
+
+        self.OnClientMessage += function (event) { self.onclientmessage(event); };
+        self.OnConfigure += function (event) { self.onconfigure(event); };
+        self.OnDestroy += function (event) { self.ondestroy(event); };
+        edit.OnDestroy += function (event) { self.oneditdestroy(event); };
+
+    }
+    function oneditdestroy(event)
+    {
+        self.edit = null;
+        self.Destroy();
+    }
+    function ondestroy(event)
+    {
+        var controller = self.controller;
+        controller.unregister(self);
+        controller.Quit();
+    }
+    function onconfigure(event)
+    {
+        self.width =: int(event.width());
+        self.height =: int(event.height());
+    }
+    function onclientmessage(event)
+    {
+        int type = event.message_type();
+        if (type == self.display.InternAtom("WM_PROTOCOLS")) {
+            int data0 = event.message_data(0);
+            if (data0 == self.display.InternAtom("WM_DELETE_WINDOW")) {
+                self.display.Flush();
+                self.SetInputFocus(RevertToParent);
+                self.alive =: false;
+                self.edit.Destroy();
+                //self.Destroy();
+            }
+            else if (data0 == self.display.InternAtom("WM_TAKE_FOCUS")) {
+                if (self.edit != null && self.alive)
+                    self.edit.SetInputFocus(RevertToParent);
+                self.display.Flush();
+            }
+        }
+    }
+}
+
+//**********************************************************************
+
+function main(args)
+{
+    var controller = new Controller();
+    var w = new EditWindow(controller, "courier-24");
+    w.Map();
+
+    controller.MainLoop();
+
+    say('End');
+    controller.Close();
+}
+
+// End.

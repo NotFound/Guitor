@@ -44,6 +44,9 @@ const int
     RevertToPointerRoot = 1,
     RevertToParent      = 2;
 
+// WM hints
+const int InputHint = 1;
+
 namespace Events
 {
 
@@ -57,7 +60,8 @@ const int
     LeaveWindowMask     = 0x00000020,
     PointerMotionMask   = 0x00000040,
     ExposureMask        = 0x00008000,
-    StructureNotifyMask = 0x00020000;
+    StructureNotifyMask = 0x00020000,
+    FocusChangeMask     = 0x00200000;
 // Event types
 const int
     KeyPress        =  2,
@@ -65,6 +69,8 @@ const int
     ButtonPress     =  4,
     ButtonRelease   =  5,
     MotionNotify    =  6,
+    FocusIn         =  9,
+    FocusOut        = 10,
     Expose          = 12,
     DestroyNotify   = 17,
     ConfigureNotify = 22,
