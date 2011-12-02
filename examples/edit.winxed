@@ -13,6 +13,7 @@ using namespace Guitor.Events;
 
 class EditWindow : TopLevelWindow
 {
+    var font;
     var width;
     var height;
     var edit;
@@ -20,12 +21,13 @@ class EditWindow : TopLevelWindow
     function EditWindow(controller, string fontname)
     {
         var font = controller.display.CreateFont(fontname);
+        self.font = font;
         int width = 200;
         int height = font.getHeight();
         self.width = width;
         self.height = height;
         self.TopLevelWindow(controller, "Edit test",
-            4, 4, width + 10, height + 10);
+            4, 4, width + 10, height + 20);
         self.SetWMProtocols(['WM_TAKE_FOCUS', 'WM_DELETE_WINDOW' ]);
 
         var edit = new EditBox(self, 4, 4, 0, 0, font);
@@ -52,8 +54,14 @@ class EditWindow : TopLevelWindow
     }
     function onconfigure(event)
     {
-        self.width =: int(event.width());
-        self.height =: int(event.height());
+        int width = event.width();
+        self.width =: width;
+        int height = event.height();
+        self.height =: height;
+        var childheight = self.font.getHeight() + 6;
+        if (childheight >= height)
+            childheight = height - 4;
+        self.edit.ResizeWindow(width - 10, childheight);
     }
     function onclientmessage(event)
     {
