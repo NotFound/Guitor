@@ -65,6 +65,7 @@ class Boxes : TopLevelWindow
     var numcolor;
     function Boxes(controller)
     {
+        var display = controller.display;
         self.boxlist = [];
         self.activebox = -1;
         self.x = 0;
@@ -73,10 +74,17 @@ class Boxes : TopLevelWindow
         self.y1 = 0;
         self.pressed = false;
         self.numcolor = 0;
-        self.width = 600;
-        self.height = 400;
-        self.TopLevelWindow(controller, "Boxes", 0, 0, 600, 400);
-        var display = self.display;
+        int dwidth = display.Width();
+        int dheight = display.Height();
+        int width = dwidth - dwidth / 3;
+        int height = dheight - dheight / 3;
+        self.width = width;
+        self.height = height;
+        // The window manager will probably ignore the position,
+        // but set it just in case.
+        int x = (dwidth - width) / 2;
+        int y = (dheight - height) / 2;
+        self.TopLevelWindow(controller, "Boxes", x, y, width, height);
         self.colors = [
           display.ParseColor("yellow"),
           display.ParseColor("red"),

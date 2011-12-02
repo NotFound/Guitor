@@ -505,6 +505,10 @@ function create_function(string funcname)
       case "XDefaultDepth":
       case "XBlackPixel":
       case "XWhitePixel":
+      case "XDisplayWidth":
+      case "XDisplayWidthMM":
+      case "XDisplayHeight":
+      case "XDisplayHeightMM":
       case "XKeysymToKeycode":
         sig = "ipi";
         break;

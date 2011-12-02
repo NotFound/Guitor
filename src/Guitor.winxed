@@ -105,6 +105,22 @@ class Display
     {
         return getfun("XDefaultColormap")(self.xdisplay, scrnum);
     }
+    function Height(int scrnum[optional])
+    {
+        return int(getfun("XDisplayHeight")(self.xdisplay, scrnum));
+    }
+    function HeightMM(int scrnum[optional])
+    {
+        return int(getfun("XDisplayHeightMM")(self.xdisplay, scrnum));
+    }
+    function Width(int scrnum[optional])
+    {
+        return int(getfun("XDisplayWidth")(self.xdisplay, scrnum));
+    }
+    function WidthMM(int scrnum[optional])
+    {
+        return int(getfun("XDisplayWidthMM")(self.xdisplay, scrnum));
+    }
     function BlackPixel(int scrnum)
     {
         return getfun("XBlackPixel")(self.xdisplay, scrnum);
