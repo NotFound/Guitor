@@ -478,6 +478,7 @@ function create_function(string funcname)
 {
     string sig;
     switch (funcname) {
+      case "XFree":
       case "XFlush":
         sig = "vp";
         break;
@@ -610,6 +611,9 @@ function create_function(string funcname)
         break;
       case "XSetSubwindowMode":
         sig = "vppi";
+        break;
+      case "XListProperties":
+        sig = "ppip";
         break;
       default:
         throw "Function " + funcname + " unknown";

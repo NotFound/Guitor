@@ -46,6 +46,11 @@ extern function getview;
 
 extern function newAtomlist;
 
+function Free(p)
+{
+    getfun("XFree")(p);
+}
+
 } // namespace Xlib__private
 
 using namespace Xlib__private;
@@ -966,6 +971,19 @@ class Window : Drawable
     {
         getfun("XSetTransientForHint")(self.display.xdisplay,
                 self.xdrawable, prop_window.xdrawable);
+    }
+    function ListProperties()
+    {
+        var view = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var num_prop = view.alloc();
+        var props = getfun("XListProperties")(self.display.xdisplay, self.xdrawable, num_prop);
+        int n = view[num_prop, 0];
+        view = getatomview(n);
+        int result[];
+        for (int i = 0; i < n; ++i)
+            push(result, int(view[props, i]));
+        Free(props);
+        return result;
     }
 }
 
