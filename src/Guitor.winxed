@@ -6,6 +6,8 @@
 
 $include "GuitorConstants.winxhead";
 
+$include_const "hash_key_type.pasm";
+
 $load "GuitorNci.pbc";
 
 namespace Guitor
@@ -983,7 +985,9 @@ class Controller
     function Controller(display)
     {
         self.display = display;
-        self.regwindow = {};
+        var regwindow = {};
+        regwindow.set_key_type(Hash_key_type_int);
+        self.regwindow = regwindow;
     }
     function Close()
     {
@@ -1002,6 +1006,14 @@ class Controller
         var regwindow = self.regwindow;
         if (exists regwindow[window.xdrawable])
             delete regwindow[window.xdrawable];
+    }
+    function getWindow(int windowid)
+    {
+        var regwindow = self.regwindow;
+        if (exists regwindow[windowid])
+            return regwindow[windowid];
+        else
+            return null;
     }
     function handleEvent(event)
     {
