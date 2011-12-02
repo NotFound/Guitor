@@ -913,7 +913,7 @@ class Window : Drawable
     {
         __DEBUG__ && cry(__FUNCTION__);
         getfun("XDestroyWindow")(self.display.xdisplay, self.xdrawable);
-        self.xdrawable = -1;
+        self.xdrawable = None;
     }
     function SelectInput(int eventmask)
     {

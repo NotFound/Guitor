@@ -36,6 +36,8 @@ const int
    ClipByChildren   = 0,
    IncludeInferiors = 1;
 
+// Some commonly used values:
+const int None = 0;
 const int CurrentTime = 0;
 
 // Focus revert type
