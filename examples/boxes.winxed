@@ -11,6 +11,43 @@ using namespace Guitor.Events;
 
 //**********************************************************************
 
+class AboutBoxes : TopLevelWindow
+{
+    const string msg = "Boxes - A Guitor example";
+
+    var font;
+    var width;
+    function AboutBoxes(controller, parent)
+    {
+        var display = controller.display;
+        var font = display.CreateFont("courier-14");
+        self.font = font;
+        int width = font.getTextWidth(display, msg);
+        int height = font.getHeight();
+        width = width + width / 5;
+        self.width = width;
+        self.TopLevelWindow(controller, "About Boxes",
+                0, 0, width, height * 3);
+        self.SetFont(font);
+        self.OnClientMessage += function (event) { self.Destroy(); };
+        self.OnExpose += function (event) { self.onexpose(event); };
+        self.SetWMProtocols(['WM_DELETE_WINDOW']);
+        self.SetTransientFor(parent);
+
+        // Position of the button estimated
+        var button = new TextButton(self,
+                width / 2 - 40, height + height / 2, 0, 0, "close", font);
+        button.OnClick += function () { self.Destroy(); };
+        button.Map();
+    }
+    function onexpose(event)
+    {
+        int width = self.width;
+        int x = (width - self.getTextWidth(msg)) / 2;
+        self.DrawImageString(x, self.font.getAscent(), msg);
+    }
+}
+
 const int STEP = 4; // pixels
 
 class Boxes : TopLevelWindow
@@ -97,6 +134,10 @@ class Boxes : TopLevelWindow
         switch (key) {
           case "Escape":
             self.Destroy();
+            break;
+          case "F1":
+            var about = new AboutBoxes(self.controller, self);
+            about.Map();
             break;
           case "BackSpace":
             if (active >= 0)

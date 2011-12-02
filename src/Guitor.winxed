@@ -944,6 +944,11 @@ class Window : Drawable
     {
         getfun("XRaiseWindow")(self.display.xdisplay, self.xdrawable);
     }
+    function SetTransientFor(prop_window)
+    {
+        getfun("XSetTransientForHint")(self.display.xdisplay,
+                self.xdrawable, prop_window.xdrawable);
+    }
 }
 
 //**************************************************************
