@@ -426,6 +426,7 @@ class XftFont
                 visual, colormap);
         getxftfun("XftDrawStringUtf8")(xftdraw, color, self.xftfont,
             x, y, pstr, len);
+        getxftfun("XftDrawDestroy")(xftdraw);
     }
     function DrawImageString(display, drawable, int x, int y, string str)
     {
