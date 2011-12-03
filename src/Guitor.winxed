@@ -475,6 +475,7 @@ class XftFont
         getxftfun("XftDrawRect")(xftdraw, xbgcolor, left, top, width, height);
         getxftfun("XftDrawStringUtf8")(xftdraw, xcolor, xftfont,
             x, y, pstr, len);
+        getxftfun("XftDrawDestroy")(xftdraw);
     }
     function getAscent()
     {

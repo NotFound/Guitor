@@ -642,6 +642,9 @@ function create_xft_function(string funcname)
       case "XftDrawCreate":
         sig = "ppipp";
         break;
+      case "XftDrawDestroy":
+        sig = "vp";
+        break;
       case "XftDrawRect":
         sig = "vppiiii";
         break;
