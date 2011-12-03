@@ -1330,6 +1330,7 @@ class EditBox : ChildWindow
     var text;
     var pos;
     var offset;
+    var has_focus;
     const int MARGINSUP = 2;
     const int MARGINLEFT = 4;
     function EditBox(parent, int x, int y, int width, int height, font)
@@ -1345,6 +1346,7 @@ class EditBox : ChildWindow
         self.height = height;
         self.baseline = font.getAscent() + MARGINSUP + 1;
         self.width = width;
+        self.has_focus = false;
         self.ChildWindow(parent, x, y, width, height);
         self.SetFont(font);
         self.font = font;
@@ -1361,10 +1363,15 @@ class EditBox : ChildWindow
     }
     function setValue(string text)
     {
+        int has_focus = self.has_focus;
+        if (has_focus)
+            self.cursor();
         self.text =: text;
         self.pos =: 0;
         self.offset =: 0;
         self.drawall();
+        if (has_focus)
+            self.cursor();
     }
     function cursor()
     {
@@ -1410,16 +1417,20 @@ class EditBox : ChildWindow
         __DEBUG__ && cry(__FUNCTION__);
         if (self.width == 0)
             return;
-        if (event.window() == self.xdrawable)
+        if (event.window() == self.xdrawable) {
+            self.has_focus =: true;
             self.cursor();
+        }
     }
     function onfocusout(event)
     {
         __DEBUG__ && cry(__FUNCTION__);
         if (self.width == 0)
             return;
-        if (event.window() == self.xdrawable)
+        if (event.window() == self.xdrawable) {
             self.cursor();
+            self.has_focus =: false;
+        }
     }
     function onkeypress(event)
     {
