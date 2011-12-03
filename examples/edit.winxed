@@ -39,12 +39,25 @@ class EditWindow : TopLevelWindow
         self.OnConfigure += function (event) { self.onconfigure(event); };
         self.OnDestroy += function (event) { self.ondestroy(event); };
         edit.OnDestroy += function (event) { self.oneditdestroy(event); };
-
+        edit.OnKeyPress += function (event) { self.oneditkeypress(event); };
     }
     function oneditdestroy(event)
     {
         self.edit = null;
         self.Destroy();
+    }
+    function oneditkeypress(event)
+    {
+        switch (event.keyname()) {
+          case "Return":
+            say("Value: '", self.edit.getValue(), "'");
+            self.edit.Destroy();
+            break;
+          case "Escape":
+            say("Canceled");
+            self.edit.Destroy();
+            break;
+        }
     }
     function ondestroy(event)
     {

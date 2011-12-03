@@ -568,7 +568,7 @@ class Event
         self.evy_root = 0;
         self.evwidth = 0;
         self.evheight = 0;
-        self.evkeycode = 0;
+        self.evkeycode = -1;
         self.evbutton = 0;
     }
     function _get(xdisplay, fn)
@@ -580,7 +580,7 @@ class Event
         self.evtype =: type;
         int x = 0, y = 0, x_root = 0, y_root = 0,
                 width = 0, height = 0,
-                keycode = 0, button = 0;
+                keycode = -1, button = 0;
         switch (type) {
           case ConfigureNotify:
             view   = getstructureview();
@@ -680,6 +680,17 @@ class Event
     function keycode()
     {
         return int(self.evkeycode);
+    }
+    function keyname()
+    {
+        int keycode = self.evkeycode;
+        string key;
+        if (keycode >= 0) {
+            var xdisplay = self.anyview[self.eventdata, 3];
+            int keysym = getfun("XKeycodeToKeysym")(xdisplay, keycode, 0);
+            key = KeysymToString(keysym);
+        }
+        return key;
     }
     function button()
     {
@@ -1340,6 +1351,17 @@ class EditBox : ChildWindow
         self.OnFocusIn += function (event) { self.onfocusin(event); };
         self.OnFocusOut += function (event) { self.onfocusout(event); };
     }
+    function getValue()
+    {
+        return self.text;
+    }
+    function setValue(string text)
+    {
+        self.text = text;
+        self.pos =: 0;
+        self.offset =: 0;
+        self.drawall();
+    }
     function cursor()
     {
         __DEBUG__ && cry(__FUNCTION__);
@@ -1409,9 +1431,6 @@ class EditBox : ChildWindow
         int offset = self.offset;
         int x;
         switch (key) {
-          case "Escape":
-            //self.Destroy();
-            return;
           case "Left":
             if (pos > 0) {
                 self.cursor();
@@ -1490,13 +1509,14 @@ class EditBox : ChildWindow
                 self.cursor();
             }
             return;
-          case "space":
-            key = " ";
-            break;
         }
         key = self.LookupString(event);
         if (length(key) < 1)
             return;
+        switch (key) {
+          case "\n": case "\r": case "\e":
+            return;
+        }
         self.cursor();
         pos += length(key);
         self.pos =: pos;
