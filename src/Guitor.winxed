@@ -66,6 +66,7 @@ class Display
     var xdisplay;
     var default_screen;
     var default_font;
+    var xim;
 
     function Display(string displayname[optional])
     {
@@ -153,13 +154,33 @@ class Display
         var fn = getfun("XKeysymToString");
         return string_from_nci(fn(keysym));
     }
-    function LookupString(event)
+    function getIM()
+    {
+        var xim = self.xim;
+        if (self.xim == null) {
+            xim = getfun("XOpenIM")(self.xdisplay, null, null, null);
+            if (! xim)
+                xim = false;
+            self.xim = xim;
+        }
+        return xim;
+    }
+    function _LookupString(window, event)
     {
         const int BUFSIZE = 32;
-        var fun = getfun("XLookupString");
         var buffer = new ["ByteBuffer"];
         buffer =: BUFSIZE;
-        int len = fun(event.eventdata, buffer, BUFSIZE, null, null);
+        int len;
+        var fun;
+        var xic = window.getIC();
+        if (xic == null || ! xic) {
+            fun = getfun("XLookupString");
+            len = fun(event.eventdata, buffer, BUFSIZE, null, null);
+        }
+        else {
+            fun = getfun("XmbLookupString");
+            len = fun(xic, event.eventdata, buffer, BUFSIZE, null, null);
+        }
         string str;
         if (len > 0) {
             buffer =: len;
@@ -914,16 +935,43 @@ class Drawable
 
 class Window : Drawable
 {
+    var xic;
     function Destroy()
     {
         __DEBUG__ && cry(__FUNCTION__);
         getfun("XDestroyWindow")(self.display.xdisplay, self.xdrawable);
         self.xdrawable = None;
     }
+    function CreateIC()
+    {
+        var xic = self.xic;
+        if (xic == null) {
+            var xim = self.display.getIM();
+            if (xim) {
+                int xwin = self.xdrawable;
+                xic = getfun("XCreateIC")(xim,
+                    str_to_cstring("inputStyle"), 0x408,
+                    str_to_cstring("clientWindow"), xwin,
+                    str_to_cstring("focusWindow"), xwin,
+                    null);
+                if (! xic)
+                    xic = false;
+            }
+            else
+                xic = false;
+            self.xic = xic;
+        }
+    }
+    function getIC()
+    {
+        return self.xic;
+    }
     function SelectInput(int eventmask)
     {
         __DEBUG__ && cry(__FUNCTION__);
         getfun("XSelectInput")(self.display.xdisplay, self.xdrawable, eventmask);
+        if (eventmask & KeyPressMask)
+            self.CreateIC();
     }
     function StoreName(string name)
     {
@@ -984,6 +1032,10 @@ class Window : Drawable
             push(result, int(view[props, i]));
         Free(props);
         return result;
+    }
+    function LookupString(event)
+    {
+        return self.display._LookupString(self, event);
     }
 }
 
@@ -1048,7 +1100,8 @@ class Controller
         var event = new Event();
         do {
             display.NextEvent(event);
-            self.handleEvent(event);
+            if (! getfun("XFilterEvent")(event.eventdata, None))
+                self.handleEvent(event);
         } while (self.running);
     }
     function Quit()
@@ -1441,7 +1494,7 @@ class EditBox : ChildWindow
             key = " ";
             break;
         }
-        key = display.LookupString(event);
+        key = self.LookupString(event);
         if (length(key) < 1)
             return;
         self.cursor();

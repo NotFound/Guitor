@@ -540,7 +540,10 @@ function create_function(string funcname)
         sig = "vpii";
         break;
       case "XNextEvent":
-        sig = "ipp";
+        sig = "vpp";
+        break;
+      case "XFilterEvent":
+        sig = "ipi";
         break;
       case "XKeycodeToKeysym":
         sig = "ipii";
@@ -550,6 +553,16 @@ function create_function(string funcname)
         break;
       case "XLookupString":
         sig = "ippipp";
+        break;
+      case "XmbLookupString":
+      case "Xutf8LookupString":
+        sig = "ipppipp";
+        break;
+      case "XOpenIM":
+        sig = "ppppp";
+        break;
+      case "XCreateIC":
+        sig = "ppplplplp";
         break;
       case "XSelectInput":
         sig = "ipii";
