@@ -1361,7 +1361,7 @@ class EditBox : ChildWindow
     }
     function setValue(string text)
     {
-        self.text = text;
+        self.text =: text;
         self.pos =: 0;
         self.offset =: 0;
         self.drawall();
@@ -1522,9 +1522,9 @@ class EditBox : ChildWindow
             return;
         }
         self.cursor();
+        text = substr(text, 0, pos) + key + substr(text, pos);
         pos += length(key);
         self.pos =: pos;
-        text = text + key;
         self.text =: text;
         x = 0;
         if (pos > 0)
