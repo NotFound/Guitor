@@ -384,15 +384,15 @@ class FontSet
     var xfont;
     function DrawString(display, drawable, int x, int y, string str)
     {
-        var pstr = str_to_cstring(str);
-        int len = bytelength(str);
+        var pstr = str_to_achar_utf8(str);
+        int len = elements(pstr);
         getfun("XmbDrawString")(display.xdisplay, drawable.xdrawable,
             self.xfont, drawable.getgc().xgc, x, y, pstr, len);
     }
     function DrawImageString(display, drawable, int x, int y, string str)
     {
-        var pstr = str_to_cstring(str);
-        int len = bytelength(str);
+        var pstr = str_to_achar_utf8(str);
+        int len = elements(pstr);
         getfun("XmbDrawImageString")(display.xdisplay, drawable.xdrawable,
             self.xfont, drawable.getgc().xgc, x, y, pstr, len);
     }
@@ -832,8 +832,8 @@ class GraphicContext
             font.DrawString(display, drawable, x, y, str);
         else {
             var xgc = self.xgc;
-            var pstr = str_to_cstring(str);
-            int len = bytelength(str);
+            var pstr = str_to_achar_utf8(str);
+            int len = elements(pstr);
             getfun("XDrawString")(display.xdisplay, drawable.xdrawable,
                     xgc, x, y, pstr, len);
         }
@@ -847,8 +847,8 @@ class GraphicContext
             font.DrawImageString(display, drawable, x, y, str);
         else {
             var xgc = self.xgc;
-            var pstr = str_to_cstring(str);
-            int len = bytelength(str);
+            var pstr = str_to_achar_utf8(str);
+            int len = elements(pstr);
             getfun("XDrawImageString")(display.xdisplay, drawable.xdrawable,
                     xgc, x, y, pstr, len);
         }
