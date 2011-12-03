@@ -1,0 +1,252 @@
+// winxed_repl.winxed
+
+// A Read-Eval-Print Loop for winxed
+
+$include "Guitor.winxhead";
+
+$load "Guitor.pbc";
+
+using namespace Guitor;
+
+//**************************************************************
+
+// Compile the string passed embedded in a local function of a function
+// that passes the variables in stotage as lexicals.
+// Return the outer function.
+
+function parse_line(compiler, storage, string line)
+{
+    string source = "function aux(__storage) {";
+
+    for (string name in storage) {
+        var data = storage[name];
+        string type = data[0];
+        if (type == "var")
+            source += "volatile ";
+        source += type + " " + name + " = __storage['" + name + "'][1];";
+    }
+    source += "var __result = function() { " + line + "; } ();";
+    for (string name in storage) {
+        var data = storage[name];
+        string type = data[0];
+        source += "__storage['" + name + "'][1] = " + type + "(" + name + ");";
+    }
+
+    source += " return __result; }";
+
+    var pir = compiler.compile(source, "pir":[named("target")] );
+    var pircomp = compreg("PIR");
+    var code = pircomp.compile(pir);
+
+    var fun = code.all_subs()[0];
+    var result = fun(storage);
+    return result;
+}
+
+//**************************************************************
+
+// Panel contains the output of the commands executed.
+
+class Panel : ChildWindow
+{
+    var font;
+    var text;
+    var height;
+    function Panel(parent, int x, int y, int width, int height, font)
+    {
+        self.font = font;
+        string text[] = [ "Welcome!" ];
+        self.text = text;
+        self.height = height;
+        self.ChildWindow(parent, x, y, width, height);
+        self.OnConfigure += function (event) { self.onconfigure(event); };
+        self.OnExpose += function (event) { self.onexpose(event); };
+    }
+    function onconfigure(event)
+    {
+        self.height =: event.height();
+    }
+    function onexpose(event)
+    {
+        self.ClearArea(0, 0, 0, 0, 0);
+        self.drawall();
+    }
+    function add(string str)
+    {
+        // Add str to current content, breaking it into lines,
+        // avoiding to add blank line at end.
+        var text = self.text;
+        int pos = 0, npos;
+        while ((npos = indexof(str, "\n", pos)) >= 0) {
+            push(text, substr(str, pos, npos - pos));
+            pos = npos + 1;
+        }
+        if (pos < length(str))
+            push(text, substr(str, pos));
+    }
+    function drawall()
+    {
+        var text = self.text;
+        int ntext = elements(text);
+        int lineheight = self.font.getHeight();
+        int nlines = self.height / lineheight;
+        int start = ntext - nlines;
+        if (start < 0)
+            start = 0;
+        for (int i = start, y = lineheight; i < ntext; ++i, y += lineheight)
+            self.DrawImageString(0, y, text[i]);
+    }
+}
+
+//**************************************************************
+
+// Main application window: contains a Panel and a EditBox
+
+class WinxedRepl : TopLevelWindow
+{
+    var font;
+    var width;
+    var height;
+    var command;
+    var panel;
+    var command_y;
+    var command_height;
+    var storage;
+    var compiler;
+    function WinxedRepl(controller, fontname)
+    {
+        var display = controller.display;
+        var font = display.CreateFont(fontname);
+        int width = 600, height = 400;
+        int command_height = font.getHeight();
+        int command_y = height - command_height - 1;
+        self.font = font;
+        self.width = width;
+        self.height = height;
+        self.command_height = command_height;
+        self.command_y = command_y;
+        self.compiler = load_language("winxed");
+
+        // No way to declare variables yet, hardcode a few here:
+        self.storage = {
+            "n" : [ "int", 42 ],
+            "j" : [ "string", "hi"],
+            "p" : [ "var", null ]
+        };
+        
+        self.TopLevelWindow(controller, "Winxed REPL",
+                0, 0, width, height,
+                { "background_color" : display.ParseColor("grey") } );
+        self.SetWMProtocols(['WM_TAKE_FOCUS', 'WM_DELETE_WINDOW' ]);
+        var command = new EditBox(self,
+                1, command_y, width - 2, command_height, font);
+        self.command = command;
+        command.Map();
+        var panel = new Panel(self, 1, 1, width - 2, command_y - 2, font);
+        self.panel = panel;
+        panel.Map();
+
+        self.OnDestroy += function (event) { self.controller.Quit(); };
+        self.OnConfigure += function (event) { self.onconfigure(event); };
+        self.OnClientMessage += function (event) { self.onclientmessage(event); };
+        command.OnKeyPress += function (event) { self.oncommandkeypress(event); };
+    }
+    function onconfigure(event)
+    {
+        int width = event.width();
+        int height = event.height();
+        int command_y = height - self.command_height - 1;
+        self.width = width;
+        self.height = height;
+        self.command_y = command_y;
+        var command = self.command;
+        if (command != null) {
+            command.ResizeWindow(width - 2, self.command_height);
+            command.MoveWindow(1, command_y);
+        }
+        var panel = self.panel;
+        if (panel != null) {
+            panel.ResizeWindow(width - 2, command_y - 2);
+        }
+    }
+    function onclientmessage(event)
+    {
+        int type = event.message_type();
+        if (type == self.display.InternAtom("WM_PROTOCOLS")) {
+            int data0 = event.message_data(0);
+            if (data0 == self.display.InternAtom("WM_DELETE_WINDOW"))
+                self.quit();
+            else if (data0 == self.display.InternAtom("WM_TAKE_FOCUS")) {
+                if (self.command != null)
+                    self.command.SetInputFocus(RevertToParent);
+                self.display.Flush();
+            }
+        }
+    }
+
+    function quit()
+    {
+        var command = self.command;
+        var panel = self.panel;
+        self.command = null;
+        self.panel = null;
+        if (command != null)
+            command.Destroy();
+        if (panel != null)
+            panel.Destroy();
+        self.Destroy();
+    }
+    function eval(string str)
+    {
+        var panel = self.panel;
+        self.command.setValue("");
+        var interp = getinterp();
+        var savestdout = interp.stdout_handle();
+        var savestderr = interp.stderr_handle();
+        var out = new ["StringHandle"];
+        out.open("REPLout", "w");
+        interp.stdout_handle(out);
+        interp.stderr_handle(out);
+        try {
+            var result = parse_line(self.compiler, self.storage, str);
+            interp.stdout_handle(savestdout);
+            interp.stderr_handle(savestderr);
+            out.close();
+            out.open("", "r");
+            panel.add(out.readall());
+            if (result != null)
+                panel.add(result);
+        }
+        catch (e) {
+            interp.stdout_handle(savestdout);
+            interp.stderr_handle(savestderr);
+            panel.add(e["message"]);
+        }
+        panel.ClearArea(0, 0, 0, 0, 0);
+        panel.drawall();
+    }
+    function oncommandkeypress(event)
+    {
+        switch (event.keyname()) {
+          case "Return":
+            self.eval(self.command.getValue());
+            break;
+          case "Escape":
+            self.quit();
+            break;
+        }
+    }
+}
+
+//**************************************************************
+
+function main()
+{
+    var controller = new Controller();
+    var repl = new WinxedRepl(controller, "Courier-12");
+    repl.Map();
+    controller.MainLoop();
+    controller.Close();    
+}
+
+// End
