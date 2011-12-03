@@ -199,7 +199,9 @@ class Display
     {
         __DEBUG__ && cry(__FUNCTION__);
         var name = getfun("XGetAtomName")(self.xdisplay, atom);
-        return name.as_string("ascii");
+        string sname = name.as_string("ascii");
+        Free(name);
+        return sname;
     }
     function AtomlistFromStrings(var atomnames)
     {
