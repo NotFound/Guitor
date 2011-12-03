@@ -18,6 +18,7 @@ class TextWindow : TopLevelWindow
     var text;
     var font;
     var chunks;
+    var start;
     function TextWindow(controller, string text, string fontname)
     {
         if (fontname == null)
@@ -32,6 +33,7 @@ class TextWindow : TopLevelWindow
         //var font = display.getDefaultFont();
         self.SetFont(font);
         self.font = font;
+        self.start = 0;
 
         self.OnConfigure += function (event) { self.onConfigure(event); };
         self.OnExpose += function (event) { self.onExpose(event); };
@@ -43,6 +45,25 @@ class TextWindow : TopLevelWindow
             controller.unregister(self);
             controller.Quit();
         };
+    }
+    function drawall()
+    {
+        string text = self.text;
+        int pos = 0;
+        int hfont = self.font.getHeight();
+        int y = 0;
+        int start = self.start;
+        int line = 0;
+        for (int p in self.chunks) {
+            if (line >= start) {
+                y += hfont;
+                self.DrawImageString(0, y, substr(self.text, pos, p - pos - 1));
+            }
+            pos = p;
+            ++line;
+        }
+        y += hfont;
+        self.DrawImageString(0, y, substr(self.text, pos));
     }
 
     function onConfigure(event)
@@ -91,25 +112,27 @@ class TextWindow : TopLevelWindow
     }
     function onExpose(event)
     {
-        string text = self.text;
-        int pos = 0;
-        int hfont = self.font.getHeight();
-        int y = hfont;
-        for (int p in self.chunks) {
-            self.DrawImageString(0, y, substr(self.text, pos, p - pos - 1));
-            pos = p;
-            y += hfont;
-        }
-        self.DrawImageString(0, y, substr(self.text, pos));
+        self.drawall();
     }
     function onKeyPress(event)
     {
         var display = self.display;
-        int code = event.keycode();
-        string key = display.KeysymToString(display.KeycodeToKeysym(code));
+        string key = event.keyname();
         switch (key) {
           case "Escape":
             self.Destroy();
+            break;
+          case "Down":
+            ++self.start;
+            self.ClearArea(0, 0, 0, 0, 0);
+            self.drawall();
+            break;
+          case "Up":
+            if (self.start > 0) {
+                --self.start;
+                self.ClearArea(0, 0, 0, 0, 0);
+                self.drawall();
+            }
             break;
         }
     }
@@ -129,8 +152,12 @@ function main(args)
     string font;
     int nargs = elements(args);
     var controller = new Controller();
-    if (nargs > 1)
-        text = args[1];
+    if (nargs > 1) {
+        string filename = args[1];
+        var file = open(filename, "r");
+        file.encoding("utf8");
+        text = file.readall();
+    }
     else
         text = "Hello, world!";
     if (nargs > 2)
