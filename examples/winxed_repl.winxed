@@ -111,6 +111,8 @@ class WinxedRepl : TopLevelWindow
     var panel;
     var command_y;
     var command_height;
+    var history;
+    var histpos;
     var storage;
     var compiler;
     function WinxedRepl(controller, fontname)
@@ -123,6 +125,9 @@ class WinxedRepl : TopLevelWindow
         self.font = font;
         self.width = width;
         self.height = height;
+        string history[];
+        self.history = history;
+        self.histpos = -1;
         self.command_height = command_height;
         self.command_y = command_y;
         self.compiler = load_language("winxed");
@@ -227,9 +232,46 @@ class WinxedRepl : TopLevelWindow
     }
     function oncommandkeypress(event)
     {
+        var history = self.history;
+        int n = elements(history);
         switch (event.keyname()) {
           case "Return":
-            self.eval(self.command.getValue());
+            string cmd = self.command.getValue();
+            self.histpos =: -1;
+            if (length(cmd)) {
+                push(history, cmd);
+                self.eval(cmd);
+            }
+            break;
+          case "Up":
+            if (n) {
+               int pos = self.histpos;
+               if (pos != 0) {
+                   if (pos == -1)
+                       pos = n - 1;
+                   else
+                       --pos;
+                   self.command.setValue(history[pos]);
+                   self.histpos =: pos;
+               }
+            }
+            break;
+          case "Down":
+            if (n) {
+               int pos = self.histpos;
+               if (pos <  n && pos != -1) {
+                   ++pos;
+                   string str;
+                   if (pos > n) {
+                       pos = -1;
+                       str = "";
+                   }
+                   else
+                       str = history[pos];
+                   self.command.setValue(str);
+                   self.histpos =: pos;
+               }
+            }
             break;
           case "Escape":
             self.quit();
