@@ -22,11 +22,34 @@ function evhandler(object, string methodname)
 
 class ColorSelector : ChildWindow
 {
+    // Size in mm
+    const int BOXWIDTH = 5;
+    const int BOXHEIGHT = 5;
+
     var pizarra;
     var colors;
-    const int WIDTH = 50, HEIGHT = 82;
+    var boxwidth;
+    var boxheight;
+    var width;
+    var height;
     function ColorSelector(pizarra, int x, int y)
     {
+        var display = pizarra.display;
+
+        // Convert box size to pixels
+        int wp = display.Width();
+        int wm = display.WidthMM();
+        int boxwidth = BOXWIDTH * wp / wm;
+        int hp = display.Height();
+        int hm = display.HeightMM();
+        int boxheight = BOXHEIGHT * hp / hm;
+
+        self.boxwidth = boxwidth;
+        self.boxheight = boxheight;
+        int width = (boxwidth + 2) * 3 + 4;
+        int height = (boxheight + 2) * 5 + 4;
+        self.width = width;
+        self.height = height;
         self.pizarra = pizarra;
         string colors[] = [
            "black",  "white",      "grey",
@@ -36,34 +59,49 @@ class ColorSelector : ChildWindow
            "coral",  "lime green", "light steel blue"
         ];
         self.colors = colors;
-        self.ChildWindow(pizarra, x, y, WIDTH + 1, HEIGHT + 1);
+        self.ChildWindow(pizarra, x, y, width, height);
         self.OnExpose += evhandler(self, "onExpose");
         self.OnButtonPress += evhandler(self, "onButtonPress");
         self.Map();
     }
+    function getwidth()
+    {
+        return int(self.width);
+    }
+    function getheight()
+    {
+        return int(self.height);
+    }
     function onExpose(event)
     {
+        int width = self.width;
+        int height = self.height;
         self.SetForeground("black");
-        self.DrawLine(    0,      0, WIDTH, 0);
-        self.DrawLine(WIDTH,      0, WIDTH, HEIGHT);
-        self.DrawLine(WIDTH, HEIGHT,     0, HEIGHT);
-        self.DrawLine(    0, HEIGHT,     0, 0);
+        self.DrawRectangle(0, 0, width - 1, height - 1);
+        int boxwidth = self.boxwidth;
+        int boxheight = self.boxheight;
         var colors = self.colors;
         for (int i = 0; i < 5; ++i)
             for (int j = 0; j < 3; ++j) {
                 self.SetForeground("black");
-                self.DrawRectangle(2 + j * 16, 2 + i * 16, 14, 14);
+                int x = 3 + j * (boxwidth + 2);
+                int y = 3 + i * (boxheight + 2);
+                self.DrawRectangle(x, y,
+                        boxwidth - 1, boxheight - 1);
                 string color = colors[i * 3 + j];
                 self.SetForeground(color);
-                self.FillRectangle(3 + j * 16, 3 + i * 16, 13, 13);
+                self.FillRectangle(x + 1, y + 1,
+                        boxwidth - 2, boxheight - 2);
             }
     }
     function onButtonPress(event)
     {
+        int boxwidth = self.boxwidth;
+        int boxheight = self.boxheight;
         int x = event.x();
         int y = event.y();
-        x = x / 16;
-        y = y / 16;
+        x = (x - 3) / (boxwidth + 2);
+        y = (y - 3) / (boxheight + 2);
         if (x >= 0 || x < 3 || y >= 0 || y < 5) {
             var colors = self.colors;
             string color = colors[y * 3 + x];
@@ -228,6 +266,7 @@ class Pizarra : TopLevelWindow
 {
     var width;
     var height;
+    var yboard;
     var board;
     function Pizarra(controller)
     {
@@ -247,11 +286,14 @@ class Pizarra : TopLevelWindow
         self.OnConfigure += function (event) { self.onConfigure(event); };
         self.OnClientMessage += function (event) { self.onClientMessage(event); };
 
-        self.board = new Board(self, 54, 2, width - 56, height - 4);
+        var colorsel = new ColorSelector(self, 4, 2);
+        int yboard = colorsel.getwidth() + 6;
+        self.yboard = yboard;
+        self.board = new Board(self, yboard, 2, width - yboard - 2, height - 4);
         self.board.Map();
-        new ColorSelector(self, 1, 1);
-        new ToolSelector(self, 1, 86);
-        var b = new TextButton(self, 0, 160, 0, 0, "quit", null);
+        new ToolSelector(self, 4, colorsel.getheight() + 4);
+        var b = new TextButton(self, 4, colorsel.getheight() + 30, 0, 0,
+                "quit", null);
         b.OnClick += function (event) { self.Destroy(); };
         b.Map();
     }
@@ -263,7 +305,7 @@ class Pizarra : TopLevelWindow
         var height = self.height;
         if (width != nwidth || height != nheight) {
             if (self.board != null)
-                self.board.ResizeWindow(nwidth - 56, nheight - 4);
+                self.board.ResizeWindow(nwidth - self.yboard - 2, nheight - 4);
             self.width = nwidth;
             self.height = nheight;
         }
