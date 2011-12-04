@@ -165,10 +165,8 @@ class WinxedRepl : TopLevelWindow
         self.height = height;
         self.command_y = command_y;
         var command = self.command;
-        if (command != null) {
-            command.ResizeWindow(width - 2, self.command_height);
-            command.MoveWindow(1, command_y);
-        }
+        if (command != null)
+            command.MoveResizeWindow(1, command_y, width - 2, self.command_height);
         var panel = self.panel;
         if (panel != null) {
             panel.ResizeWindow(width - 2, command_y - 2);

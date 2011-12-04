@@ -597,6 +597,9 @@ function create_function(string funcname)
       case "XResizeWindow":
         sig = "ipiii";
         break;
+      case "XMoveResizeWindow":
+        sig = "ipiiiii";
+        break;
       case "XParseColor":
         sig = "ipppp";
         break;

@@ -1026,6 +1026,11 @@ class Window : Drawable
     {
         getfun("XResizeWindow")(self.display.xdisplay, self.xdrawable, width, height);
     }
+    function MoveResizeWindow(int x, int y, int width, int height)
+    {
+        getfun("XMoveResizeWindow")(self.display.xdisplay, self.xdrawable,
+                x, y, width, height);
+    }
     function RaiseWindow()
     {
         getfun("XRaiseWindow")(self.display.xdisplay, self.xdrawable);
