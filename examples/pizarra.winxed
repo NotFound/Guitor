@@ -138,7 +138,7 @@ class ToolSelector : ChildWindow, BoxedSelector
     var pizarra;
     function ToolSelector(pizarra, int x, int y)
     {
-        self.BoxedSelector(pizarra.display, 3, 1);
+        self.BoxedSelector(pizarra.display, 2, 2);
         self.pizarra = pizarra;
         self.ChildWindow(pizarra, x, y, self.width, self.height);
         self.OnExpose += evhandler(self, "onExpose");
@@ -153,21 +153,24 @@ class ToolSelector : ChildWindow, BoxedSelector
         int boxheight = self.boxheight;
         self.SetForeground("black");
         self.DrawRectangle(0, 0, width - 1, height - 1);
-        for (int i = 0; i < 1; ++i)
-            for (int j = 0; j < 3; ++j) {
+        for (int i = 0; i < 2; ++i)
+            for (int j = 0; j < 2; ++j) {
                 int x = 3 + j * (boxwidth + 2);
                 int y = 3 + i * (boxheight + 2);
                 self.DrawRectangle(x, y, boxwidth - 1, boxheight - 1);
-                switch (j) {
+                switch (i * 2 + j) {
                   case 0:
                     self.DrawLine(x +  3, y +  3, x +  5, y + 9);
                     self.DrawLine(x +  5, y +  9, x + 11, y + 12);
                     self.DrawLine(x + 11, y + 12, x + 12, y + 13);
                     break;
                   case 1:
-                    self.DrawRectangle(x + 3, y + 3, boxwidth - 7, boxheight - 7);
+                    self.DrawLine(x + 2, y + 3, x + 10, y + 14);
                     break;
                   case 2:
+                    self.DrawRectangle(x + 3, y + 3, boxwidth - 7, boxheight - 7);
+                    break;
+                  case 3:
                     self.FillRectangle(x + 3, y + 3, boxwidth - 6, boxheight - 6);
                     break;
                 }
@@ -181,8 +184,8 @@ class ToolSelector : ChildWindow, BoxedSelector
         int y = event.y();
         x = (x - 3) / (boxwidth + 2);
         y = (y - 3) / (boxheight + 2);
-        if (x >= 0 || x < 3 || y >= 0 || y < 1) {
-            self.pizarra.setmode(x);
+        if (x >= 0 || x < 2 || y >= 0 || y < 2) {
+            self.pizarra.setmode(y * 2 + x);
         }
     }
 }
@@ -204,9 +207,30 @@ class Thing
 
 class Line : Thing
 {
+    var x0;
+    var y0;
+    var x1;
+    var y1;
+    function Line(string colorspec, x0, int y0, int x1, int y1)
+    {
+        self.Thing(colorspec);
+        self.x0 = x0;
+        self.x1 = x1;
+        self.y0 = y0;
+        self.y1 = y1;
+    }
+    function draw(drawable)
+    {
+        self.setforeground(drawable);
+        drawable.DrawLine(self.x0, self.y0, self.x1, self.y1);
+    }
+}
+
+class HandLine : Thing
+{
     var xcoord;
     var ycoord;
-    function Line(string colorspec)
+    function HandLine(string colorspec)
     {
         self.Thing(colorspec);
         int x[];
@@ -367,7 +391,7 @@ class Pizarra : TopLevelWindow
 
 class Board : ChildWindow
 {
-    const int LINE = 0, RECTANGLE = 1, FILLRECT = 2;
+    const int HANDLINE = 0, LINE = 1, RECTANGLE = 2, FILLRECT = 3;
 
     var parent;
     var mode;
@@ -382,7 +406,7 @@ class Board : ChildWindow
     function Board(parent, int x, int y, int width, int height)
     {
         self.parent = parent;
-        self.mode = LINE;
+        self.mode = HANDLINE;
         self.listline = [];
         self.ChildWindow(parent, x, y, width, height);
         self.pressed = false;
@@ -414,7 +438,7 @@ class Board : ChildWindow
             self.parent.Destroy();
             break;
           case "l":
-            self.mode =: LINE;
+            self.mode =: HANDLINE;
             break;
           case "r":
             self.mode =: RECTANGLE;
@@ -449,6 +473,7 @@ class Board : ChildWindow
         switch (self.mode) {
           case RECTANGLE:
           case FILLRECT:
+          case LINE:
             self.SetFunction(GXinvert);
             self.SetLineAttributes(0, LineOnOffDash, 0, 0);
             self.SetSubwindowMode(IncludeInferiors);
@@ -479,6 +504,15 @@ class Board : ChildWindow
             self.listline.push(r);
             r.draw(self);
             break;
+          case LINE:
+            self.hintline(initx, inity, oldx, oldy);
+            self.SetFunction(GXcopy);
+            self.SetLineAttributes(0, LineSolid, 0, 0);
+            self.SetSubwindowMode(ClipByChildren);
+            var l = new Line(colorspec, initx, inity, oldx, oldy);
+            self.listline.push(l);
+            l.draw(self);
+            break;
         }
     }
     function onMotion(event)
@@ -490,15 +524,19 @@ class Board : ChildWindow
             int oldy = self.oldy;
             if (x != oldx || y != oldy) {
                 switch (self.mode) {
-                  case LINE:
+                  case HANDLINE:
                     var line = self.line;
                     if (line == null) {
-                        self.line = line = new Line(self.colorspec);
+                        self.line = line = new HandLine(self.colorspec);
                         self.listline.push(line);
                         line.push(oldx, oldy);
                     }
                     line.push(x, y);
                     line.draw(self);
+                    break;
+                  case LINE:
+                    self.hintline(self.initx, self.inity, oldx, oldy);
+                    self.hintline(self.initx, self.inity, x, y);
                     break;
                   case RECTANGLE:
                   case FILLRECT:
@@ -512,6 +550,10 @@ class Board : ChildWindow
         }
     }
 
+    function hintline(int x0, int y0, int x1, int y1)
+    {
+        self.DrawLine(x0, y0, x1, y1);
+    }
     function hintrectangle(int x0, int y0, int x1, int y1)
     {
         int x = x0;
