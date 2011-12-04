@@ -20,36 +20,65 @@ function evhandler(object, string methodname)
 
 //**********************************************************************
 
-class ColorSelector : ChildWindow
-{
-    // Size in mm
-    const int BOXWIDTH = 5;
-    const int BOXHEIGHT = 5;
+// Size in mm
+const int BOXWIDTH = 5;
+const int BOXHEIGHT = 5;
+// Min size in pixels
+const int MINBOXWIDTH = 16;
+const int MINBOXHEIGHT = 16;
 
-    var pizarra;
-    var colors;
+function boxsize(display)
+{
+    // Convert box size to pixels
+    int wp = display.Width();
+    int wm = display.WidthMM();
+    int boxwidth = BOXWIDTH * wp / wm;
+    int hp = display.Height();
+    int hm = display.HeightMM();
+    int boxheight = BOXHEIGHT * hp / hm;
+    if (boxwidth < MINBOXWIDTH)
+        boxwidth = MINBOXWIDTH;
+    if (boxheight < MINBOXHEIGHT)
+        boxheight = MINBOXHEIGHT;
+    return boxwidth, boxheight;
+}
+
+class BoxedSelector
+{
     var boxwidth;
     var boxheight;
     var width;
     var height;
-    function ColorSelector(pizarra, int x, int y)
+    function BoxedSelector(display, int xitems, int yitems)
     {
-        var display = pizarra.display;
-
-        // Convert box size to pixels
-        int wp = display.Width();
-        int wm = display.WidthMM();
-        int boxwidth = BOXWIDTH * wp / wm;
-        int hp = display.Height();
-        int hm = display.HeightMM();
-        int boxheight = BOXHEIGHT * hp / hm;
-
+        :(int boxwidth, int boxheight) = boxsize(display);
         self.boxwidth = boxwidth;
         self.boxheight = boxheight;
-        int width = (boxwidth + 2) * 3 + 4;
-        int height = (boxheight + 2) * 5 + 4;
+        int width = (boxwidth + 2) * xitems + 4;
+        int height = (boxheight + 2) * yitems + 4;
         self.width = width;
         self.height = height;
+    }
+    function getwidth()
+    {
+        return int(self.width);
+    }
+    function getheight()
+    {
+        return int(self.height);
+    }
+}
+
+//**********************************************************************
+
+class ColorSelector : ChildWindow, BoxedSelector
+{
+
+    var pizarra;
+    var colors;
+    function ColorSelector(pizarra, int x, int y)
+    {
+        self.BoxedSelector(pizarra.display, 3, 5);
         self.pizarra = pizarra;
         string colors[] = [
            "black",  "white",      "grey",
@@ -59,18 +88,10 @@ class ColorSelector : ChildWindow
            "coral",  "lime green", "light steel blue"
         ];
         self.colors = colors;
-        self.ChildWindow(pizarra, x, y, width, height);
+        self.ChildWindow(pizarra, x, y, self.width, self.height);
         self.OnExpose += evhandler(self, "onExpose");
         self.OnButtonPress += evhandler(self, "onButtonPress");
         self.Map();
-    }
-    function getwidth()
-    {
-        return int(self.width);
-    }
-    function getheight()
-    {
-        return int(self.height);
     }
     function onExpose(event)
     {
@@ -112,40 +133,54 @@ class ColorSelector : ChildWindow
 
 //**********************************************************************
 
-class ToolSelector : ChildWindow
+class ToolSelector : ChildWindow, BoxedSelector
 {
-    const int WIDTH = 50, HEIGHT = 20;
-
     var pizarra;
     function ToolSelector(pizarra, int x, int y)
     {
+        self.BoxedSelector(pizarra.display, 3, 1);
         self.pizarra = pizarra;
-        self.ChildWindow(pizarra, x, y, WIDTH + 1, HEIGHT + 1);
+        self.ChildWindow(pizarra, x, y, self.width, self.height);
         self.OnExpose += evhandler(self, "onExpose");
         self.OnButtonPress += evhandler(self, "onButtonPress");
         self.Map();
     }
     function onExpose(event)
     {
+        int width = self.width;
+        int height = self.height;
+        int boxwidth = self.boxwidth;
+        int boxheight = self.boxheight;
         self.SetForeground("black");
-        self.DrawLine(    0,      0, WIDTH, 0);
-        self.DrawLine(WIDTH,      0, WIDTH, HEIGHT);
-        self.DrawLine(WIDTH, HEIGHT,     0, HEIGHT);
-        self.DrawLine(    0, HEIGHT,     0, 0);
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 1; ++j)
-                self.DrawRectangle( 2 + i * 16, 2 + j * 16, 14, 14);
-        self.DrawLine(4,  4, 7, 10);
-        self.DrawLine(7, 10, 10, 5);
-        self.DrawRectangle(20, 4, 10, 10);
-        self.FillRectangle(36, 4, 11, 11);
+        self.DrawRectangle(0, 0, width - 1, height - 1);
+        for (int i = 0; i < 1; ++i)
+            for (int j = 0; j < 3; ++j) {
+                int x = 3 + j * (boxwidth + 2);
+                int y = 3 + i * (boxheight + 2);
+                self.DrawRectangle(x, y, boxwidth - 1, boxheight - 1);
+                switch (j) {
+                  case 0:
+                    self.DrawLine(x +  3, y +  3, x +  5, y + 9);
+                    self.DrawLine(x +  5, y +  9, x + 11, y + 12);
+                    self.DrawLine(x + 11, y + 12, x + 12, y + 13);
+                    break;
+                  case 1:
+                    self.DrawRectangle(x + 3, y + 3, boxwidth - 7, boxheight - 7);
+                    break;
+                  case 2:
+                    self.FillRectangle(x + 3, y + 3, boxwidth - 6, boxheight - 6);
+                    break;
+                }
+            }
     }
     function onButtonPress(event)
     {
+        int boxwidth = self.boxwidth;
+        int boxheight = self.boxheight;
         int x = event.x();
         int y = event.y();
-        x = x / 16;
-        y = y / 16;
+        x = (x - 3) / (boxwidth + 2);
+        y = (y - 3) / (boxheight + 2);
         if (x >= 0 || x < 3 || y >= 0 || y < 1) {
             self.pizarra.setmode(x);
         }
@@ -291,8 +326,10 @@ class Pizarra : TopLevelWindow
         self.yboard = yboard;
         self.board = new Board(self, yboard, 2, width - yboard - 2, height - 4);
         self.board.Map();
-        new ToolSelector(self, 4, colorsel.getheight() + 4);
-        var b = new TextButton(self, 4, colorsel.getheight() + 30, 0, 0,
+        int y = colorsel.getheight() + 4;
+        var toolsel = new ToolSelector(self, 4, y);
+        y += toolsel.getheight() + 2;
+        var b = new TextButton(self, 4, y, 0, 0,
                 "quit", null);
         b.OnClick += function (event) { self.Destroy(); };
         b.Map();
