@@ -28,6 +28,7 @@ const string
     STRUCTUREVIEW = "guitor_structureview",
     EXPOSEVIEW    = "guitor_exposeview",
     FOCUSVIEW     = "guitor_focusview",
+    CROSSINGVIEW  = "guitor_crossingview",
     CLIENTVIEW    = "guitor_clientview",
     XAWMHINTSVIEW = "guitor_xawmhintsview",
     ATOMVIEW      = "guitor_atomview",
@@ -322,9 +323,38 @@ function getfocusview()
     var ns = namespace Xlib__private;
     var st = ns[FOCUSVIEW];
     if (st == null)
-        ns[FOCUSVIEW] = st = create_exposeview();
+        ns[FOCUSVIEW] = st = create_focusview();
     return st;
 }
+
+function getcrossingview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[CROSSINGVIEW];
+    if (st == null)
+        ns[CROSSINGVIEW] = st = new ["StructView"] ( [ DATATYPE_STRUCT, 17,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // Serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // window
+            XLIB_Window,   // root
+            XLIB_Window,   // subwindow
+            XLIB_time_t,   // time
+            DATATYPE_INT,  // x
+            DATATYPE_INT,  // y
+            DATATYPE_INT,  // x_root
+            DATATYPE_INT,  // y_root
+            DATATYPE_INT,  // mode
+            DATATYPE_INT,  // detail
+            XLIB_Bool,     // same_screen
+            XLIB_Bool,     // focus
+            DATATYPE_INT   // state
+        ] );
+    return st;
+}
+
+
 
 function getclientview()
 {

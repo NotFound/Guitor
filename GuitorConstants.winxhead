@@ -40,6 +40,14 @@ const int
 const int None = 0;
 const int CurrentTime = 0;
 
+// Enter and Leave
+const int
+    NotifyAncestor         = 0,
+    NotifyVirtual          = 1,
+    NotifyInferior         = 2,
+    NotifyNonlinear        = 3,
+    NotifyNonlinearVirtual = 4;
+
 // Focus revert type
 const int
     RevertToNone        = 0,
@@ -71,6 +79,8 @@ const int
     ButtonPress     =  4,
     ButtonRelease   =  5,
     MotionNotify    =  6,
+    EnterNotify     =  7,
+    LeaveNotify     =  8,
     FocusIn         =  9,
     FocusOut        = 10,
     Expose          = 12,

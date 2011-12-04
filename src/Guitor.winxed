@@ -31,6 +31,7 @@ extern function geteventpad;
 extern function getanyview;
 extern function getstructureview;
 extern function getexposeview;
+extern function getcrossingview;
 extern function getfocusview;
 extern function getmotionview;
 extern function getbuttonview;
@@ -561,6 +562,7 @@ class Event
     var evheight;
     var evkeycode;
     var evbutton;
+    var evstate;
     function Event()
     {
         self.eventdata = geteventpad().alloc();
@@ -574,6 +576,7 @@ class Event
         self.evheight = 0;
         self.evkeycode = -1;
         self.evbutton = 0;
+        self.evstate = 0;
     }
     function _get(xdisplay, fn)
     {
@@ -584,7 +587,8 @@ class Event
         self.evtype =: type;
         int x = 0, y = 0, x_root = 0, y_root = 0,
                 width = 0, height = 0,
-                keycode = -1, button = 0;
+                keycode = -1, button = 0,
+                state = 0;
         switch (type) {
           case ConfigureNotify:
             view   = getstructureview();
@@ -607,6 +611,7 @@ class Event
             x_root  = view[eventdata, 10];
             y_root  = view[eventdata, 11];
             keycode = view[eventdata, 13];
+            state   = view[eventdata, 12];
             break;
           case ButtonPress:
           case ButtonRelease:
@@ -616,6 +621,7 @@ class Event
             x_root = view[eventdata, 10];
             y_root = view[eventdata, 11];
             button = view[eventdata, 13];
+            state  = view[eventdata, 12];
             break;
           case MotionNotify:
             view   = getmotionview();
@@ -623,10 +629,20 @@ class Event
             y      = view[eventdata, 9];
             x_root = view[eventdata, 10];
             y_root = view[eventdata, 11];
+            state  = view[eventdata, 12];
             break;
           case FocusIn:
           case FocusOut:
             view   = getfocusview();
+            break;
+          case EnterNotify:
+          case LeaveNotify:
+            view   = getcrossingview();
+            x      = view[eventdata, 8];
+            y      = view[eventdata, 9];
+            x_root = view[eventdata, 10];
+            y_root = view[eventdata, 11];
+            state  = view[eventdata, 16];
             break;
         }
         self.evx =: x;
@@ -637,6 +653,7 @@ class Event
         self.evheight =: height;
         self.evkeycode =: keycode;
         self.evbutton =: button;
+        self.evstate =: state;
     }
     function type()
     {
@@ -699,6 +716,20 @@ class Event
     function button()
     {
         return int(self.evbutton);
+    }
+    function state()
+    {
+        return int(self.evstate);
+    }
+    function detail()
+    {
+        int detail = 0;
+        int type = self.evtype;
+        if (type == EnterNotify || type == LeaveNotify) {
+            var view   = getcrossingview();
+            detail  = view[self.eventdata, 13];
+        }
+        return detail;
     }
     function message_type()
     {
@@ -1165,6 +1196,8 @@ class ListenerWindow : Window
     var OnButtonRelease;
     var OnMotion;
     var OnDestroy;
+    var OnEnter;
+    var OnLeave;
     var OnFocusIn;
     var OnFocusOut;
     var OnClientMessage;
@@ -1178,6 +1211,8 @@ class ListenerWindow : Window
         self.OnButtonRelease = new EventHandler(self, ButtonReleaseMask);
         self.OnMotion = new EventHandler(self, PointerMotionMask);
         self.OnDestroy = new EventHandler(self, StructureNotifyMask);
+        self.OnEnter = new EventHandler(self, EnterWindowMask);
+        self.OnLeave = new EventHandler(self, LeaveWindowMask);
         self.OnFocusIn = new EventHandler(self, FocusChangeMask);
         self.OnFocusOut = new EventHandler(self, FocusChangeMask);
         self.OnClientMessage = new EventHandler(self, 0);
@@ -1223,6 +1258,12 @@ class ListenerWindow : Window
             break;
           case FocusOut:
             handler = self.OnFocusOut;
+            break;
+          case EnterNotify:
+            handler = self.OnEnter;
+            break;
+          case LeaveNotify:
+            handler = self.OnLeave;
             break;
           case ClientMessage:
             handler = self.OnClientMessage;
