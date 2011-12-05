@@ -27,7 +27,7 @@ class Graph : TopLevelWindow
     var yp0;
     var xp1;
     var yp1;
-    function Graph(controller, string expr, funcs, float x0, float x1, float y0, float y1)
+    function Graph(controller, width, height, string expr, funcs, float x0, float x1, float y0, float y1)
     {
         self.pressed = false;
         self.funcs = funcs;
@@ -35,8 +35,6 @@ class Graph : TopLevelWindow
         self.x1 = x1;
         self.y0 = y0;
         self.y1 = y1;
-        int width = 800;
-        int height = 600;
         self.width = width;
         self.height = height;
 
@@ -392,8 +390,14 @@ function main [main](args)
         exit(1);
     }
 
+    var display = new Display();
+    int swidth = display.Width();
+    int sheight = display.Height();
+    int width = swidth - swidth / 3;
+    int height = sheight - sheight / 3;
+
     int iarg = 1;
-    float x0  = -10, x1 = 10, y0 = -10, y1 = 10;
+    float x0  = -10, x1 = 10, y0, y1;
     if (args[iarg] == "--range") {
         ++iarg;
         var values = split(",", args[iarg]);
@@ -410,6 +414,18 @@ function main [main](args)
             exit(1);
         }
         ++iarg;
+    }
+    if (y0 == 0 || y1 == 0) {
+        float p = float(x1 - x0) *  height / width;
+        if (y0 == 0)
+            if (y1 == 0) {
+                y1 =  p / 2;
+                y0 = -y1;
+            }
+            else
+                y0 = y1 - p;
+        else
+            y1 = y0 + p;
     }
 
     string expr = "";
@@ -431,9 +447,8 @@ function main [main](args)
         exit(1);
     }
 
-    var display = new Display();
     var controller = new Controller(display);
-    var graph = new Graph(controller, expr, funcs, x0, x1, y0, y1);
+    var graph = new Graph(controller, width, height, expr, funcs, x0, x1, y0, y1);
     int loop = true;
     display.SetWMProtocols(graph, ['WM_DELETE_WINDOW']);
     graph.OnDestroy += function (event) {
