@@ -1315,8 +1315,8 @@ class TopLevelWindow : ListenerWindow
         self.display = display;
         int background = display.WhitePixel(0);
         if (style != null) {
-            if (exists style["background_color"])
-                background = style["background_color"].pixel();
+            if (exists style["background-color"])
+                background = style["background-color"].pixel();
         }
         self.xdrawable = display.CreateSimpleWindow(x, y, width, height,
                 0, 0, background);
@@ -1337,8 +1337,8 @@ class ChildWindow : ListenerWindow
         int border_color = 0;
         int background = display.WhitePixel(0);
         if (style != null) {
-            if (exists style["background_color"])
-                background = style["background_color"].pixel();
+            if (exists style["background-color"])
+                background = style["background-color"].pixel();
         }
         self.xdrawable = display.CreateSimpleChildWindow(parent,
                 x, y, width, height, border_width, border_color, background);
@@ -1666,7 +1666,7 @@ class MenuWindow : ChildWindow
         self.inside = false;
         var bgcolor =  parent.display.ParseColor("grey");
         self.ChildWindow(parent, x + 1, y + 1, width, height,
-                { "background_color" : parent.display.ParseColor("grey") } );
+                { "background-color" : parent.display.ParseColor("grey") } );
         self.SetForeground("black");
         self.OnExpose += function (event) { self.onexpose(event); };
         self.OnEnter += function (event) { self.onenter(event); };

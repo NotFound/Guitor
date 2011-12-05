@@ -141,7 +141,7 @@ class WinxedRepl : TopLevelWindow
         
         self.TopLevelWindow(controller, "Winxed REPL",
                 0, 0, width, height,
-                { "background_color" : display.ParseColor("grey") } );
+                { "background-color" : display.ParseColor("grey") } );
         self.SetWMProtocols(['WM_TAKE_FOCUS', 'WM_DELETE_WINDOW' ]);
         var command = new EditBox(self,
                 1, command_y, width - 2, command_height, font);

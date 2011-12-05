@@ -254,7 +254,7 @@ class Boxes : TopLevelWindow
         var boxlist = self.boxlist;
         var color = self.colors[self.numcolor];
         var box =  new Box(self, x, y, width, height,
-            { "background_color" : color } );
+            { "background-color" : color } );
 
         box.Map();
         int active = elements(boxlist);

@@ -335,7 +335,7 @@ class Pizarra : TopLevelWindow
         self.width = width;
         self.height = height;
         self.TopLevelWindow(controller, title, 0, 0, width, height,
-                { "background_color" : controller.display.ParseColor("grey") } );
+                { "background-color" : controller.display.ParseColor("grey") } );
         controller.created(self);
 
         self.OnDestroy += function (event)
