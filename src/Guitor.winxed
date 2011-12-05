@@ -385,16 +385,22 @@ class FontSet
     var xfont;
     function DrawString(display, drawable, int x, int y, string str)
     {
+        var xdrawable = drawable.xdrawable;
+        if (xdrawable == None)
+            return;
         var pstr = str_to_achar_utf8(str);
         int len = elements(pstr);
-        getfun("XmbDrawString")(display.xdisplay, drawable.xdrawable,
+        getfun("XmbDrawString")(display.xdisplay, xdrawable,
             self.xfont, drawable.getgc().xgc, x, y, pstr, len);
     }
     function DrawImageString(display, drawable, int x, int y, string str)
     {
+        var xdrawable = drawable.xdrawable;
+        if (xdrawable == None)
+            return;
         var pstr = str_to_achar_utf8(str);
         int len = elements(pstr);
-        getfun("XmbDrawImageString")(display.xdisplay, drawable.xdrawable,
+        getfun("XmbDrawImageString")(display.xdisplay, xdrawable,
             self.xfont, drawable.getgc().xgc, x, y, pstr, len);
     }
     function getHeight()
@@ -415,11 +421,13 @@ class XftFont
     {
         if (length(str) == 0)
             return;
+        var xdrawable = drawable.xdrawable;
+        if (xdrawable == None)
+            return;
 
         var visual = display.DefaultVisual();
         var colormap = display.DefaultColormap();
         var xdisplay = display.xdisplay;
-        var xdrawable = drawable.xdrawable;
         var color = getxftcolorview().alloc();
         getxftfun("XftColorAllocName")(xdisplay, visual, colormap,
                 str_to_cstring("black"), color);
@@ -435,11 +443,13 @@ class XftFont
     {
         if (length(str) == 0)
             return;
+        var xdrawable = drawable.xdrawable;
+        if (xdrawable == None)
+            return;
         var pstr = str_to_achar_utf8(str);
         int len = elements(pstr);
 
         var xdisplay = display.xdisplay;
-        var xdrawable = drawable.xdrawable;
         var xftfont = self.xftfont;
         var fview = getxftfontview();
         int ascent = fview[xftfont, 0];
@@ -563,6 +573,7 @@ class Event
     var evkeycode;
     var evbutton;
     var evstate;
+    var time;
     function Event()
     {
         self.eventdata = geteventpad().alloc();
@@ -588,7 +599,7 @@ class Event
         int x = 0, y = 0, x_root = 0, y_root = 0,
                 width = 0, height = 0,
                 keycode = -1, button = 0,
-                state = 0;
+                state = 0, time = 0;
         switch (type) {
           case ConfigureNotify:
             view   = getstructureview();
@@ -606,6 +617,7 @@ class Event
             break;
           case KeyPress:
             view    = getkeyview();
+            time    = view[eventdata, 7];
             x       = view[eventdata, 8];
             y       = view[eventdata, 9];
             x_root  = view[eventdata, 10];
@@ -616,6 +628,7 @@ class Event
           case ButtonPress:
           case ButtonRelease:
             view   = getbuttonview();
+            time   = view[eventdata, 7];
             x      = view[eventdata, 8];
             y      = view[eventdata, 9];
             x_root = view[eventdata, 10];
@@ -625,6 +638,7 @@ class Event
             break;
           case MotionNotify:
             view   = getmotionview();
+            time   = view[eventdata, 7];
             x      = view[eventdata, 8];
             y      = view[eventdata, 9];
             x_root = view[eventdata, 10];
@@ -638,6 +652,7 @@ class Event
           case EnterNotify:
           case LeaveNotify:
             view   = getcrossingview();
+            time   = view[eventdata, 7];
             x      = view[eventdata, 8];
             y      = view[eventdata, 9];
             x_root = view[eventdata, 10];
@@ -654,6 +669,7 @@ class Event
         self.evkeycode =: keycode;
         self.evbutton =: button;
         self.evstate =: state;
+        self.time = time;
     }
     function type()
     {
@@ -671,8 +687,7 @@ class Event
     }
     function time()
     {
-        int t = self.anyview[self.eventdata, 7];
-        return t;
+        return int(self.time);
     }
     function x()
     {
@@ -1087,6 +1102,20 @@ class Window : Drawable
     function LookupString(event)
     {
         return self.display._LookupString(self, event);
+    }
+    function GrabPointer(int owner_events, int event_mask,
+            int pointer_mode, int keyboard_mode, confine_to, cursor,
+            int time)
+    {
+        var fun = getfun("XGrabPointer");
+        int r = fun(self.display.xdisplay, self.xdrawable,
+                owner_events, event_mask,  pointer_mode, keyboard_mode,
+                confine_to, cursor, time);
+        return r;
+    }
+    function UngrabPointer(int time)
+    {
+        getfun("XUngrabPointer")(self.display.xdisplay, time);
     }
 }
 
@@ -1592,6 +1621,143 @@ class EditBox : ChildWindow
 
         self.drawall();
         self.cursor();
+    }
+}
+
+//**************************************************************
+
+// A barely functional context menu to be used in examples and tests.
+// No keyboard interface, only mouse. No highlight.
+
+class MenuItem
+{
+    var name;
+    var action;
+    function MenuItem(string name, action)
+    {
+        self.name = name;
+        self.action = action;
+    }
+}
+
+class MenuWindow : ChildWindow
+{
+    var menu;
+    var width;
+    var height;
+    var hbase;
+    var hitem;
+    var enter;
+    var inside;
+    function MenuWindow(parent, int x, int y, menu)
+    {
+        self.menu = menu;
+        var items = menu.items;
+        int nitems = elements(items);
+        int hitem = menu.font.getHeight() + 4;
+        int hbase = menu.font.getAscent();
+        int height = hitem * nitems + 2;
+        int width = menu.font.getTextWidth(menu.display, menu.items[0].name);
+        self.height = height;
+        self.width = width;
+        self.hitem = hitem;
+        self.hbase = hbase;
+        self.enter = false;
+        self.inside = false;
+        var bgcolor =  parent.display.ParseColor("grey");
+        self.ChildWindow(parent, x + 1, y + 1, width, height,
+                { "background_color" : parent.display.ParseColor("grey") } );
+        self.SetForeground("black");
+        self.OnExpose += function (event) { self.onexpose(event); };
+        self.OnEnter += function (event) { self.onenter(event); };
+        self.OnLeave += function (event) { self.onleave(event); };
+        self.OnButtonPress += function (event) { self.onbuttonpress(event); };
+        self.OnButtonRelease += function (event) { self.onbuttonrelease(event); };
+    }
+    function onexpose(event)
+    {
+        var items = self.menu.items;
+        int hitem = self.hitem;
+        int hbase = self.hbase;
+        self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
+        for (int i = 0, n = elements(items); i < n; ++i) {
+            self.DrawString(0, hbase + i * hitem, items[i].name);
+        }
+    }
+    function onenter(event)
+    {
+        self.enter =: true;
+        self.inside =: true;
+    }
+    function onleave(event)
+    {
+        self.inside =: false;
+    }
+    function onbuttonpress(event)
+    {
+        if (! self.inside) {
+            self.UngrabPointer(event.time());
+            self.Destroy();
+        }
+    }
+    function onbuttonrelease(event)
+    {
+        int x = event.x();
+        int y = event.y();
+        if (x < 0 || y < 0 || x >= self.width || y >= self.height) {
+            if (self.enter) {
+                self.UngrabPointer(event.time());
+                self.Destroy();
+            }
+        }
+        else {
+            self.UngrabPointer(event.time());
+            self.Destroy();
+            var items = self.menu.items;
+            int nitem = y / self.hitem;
+            if (nitem >= 0 && nitem < elements(items)) {
+                var action = items[nitem].action;
+                action();
+            }
+        }
+    }
+}
+
+class Menu
+{
+    var display;
+    var font;
+    var items;
+    function Menu(display, font)
+    {
+        self.display = display;
+        self.font = font;
+        self.items = [];
+    }
+    function push(string name, action)
+    {
+        push(self.items, new MenuItem(name, action));
+    }
+    function _activate(parent, int x, int y, int time)
+    {
+        var menuwindow = new MenuWindow(parent, x, y, self);
+        menuwindow.Map();
+        const int mask = EnterWindowMask | LeaveWindowMask |
+                ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
+        int grab = menuwindow.GrabPointer(false, mask,
+                GrabModeAsync, GrabModeAsync, None, None, time);
+        if (grab != 0) {
+            // grab failed, cancel
+            menuWindow.Destroy();
+        }
+    }
+    function activate(parent, int x, int y)
+    {
+        self._activate(parent, x, y, CurrentTime);
+    }
+    function activate_from(parent, event)
+    {
+        self._activate(parent, event.x(), event.y(), event.time());
     }
 }
 

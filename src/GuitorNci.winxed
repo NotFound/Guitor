@@ -661,6 +661,12 @@ function create_function(string funcname)
       case "XListProperties":
         sig = "ppip";
         break;
+      case "XGrabPointer":
+        sig = "ipiiiiiiil";
+        break;
+      case "XUngrabPointer":
+        sig = "vpl";
+        break;
       default:
         throw "Function " + funcname + " unknown";
     }

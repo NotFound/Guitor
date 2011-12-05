@@ -54,6 +54,11 @@ const int
     RevertToPointerRoot = 1,
     RevertToParent      = 2;
 
+// Grab modes
+const int
+    GrabModeSync  = 0,
+    GrabModeAsync = 1;
+
 // WM hints
 const int InputHint = 1;
 
