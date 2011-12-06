@@ -1152,6 +1152,54 @@ class Window : Drawable
         if (r != Success)
             return string(null);
         prop = viewptr[prop_return, 0];
+        string result;
+        // This may need some change. For a now, assume that utf8 has
+        // been tried and failed, so this is a second guess.
+        // Fallback to binary if failed.
+        try {
+            result = prop.as_string("iso-8859-1");
+        }
+        catch () {
+            result = prop.as_string("binary");
+        }
+        Free(prop);
+        return result;
+    }
+    function GetPropertyUtf8String(int property)
+    {
+        var display = self.display;
+        var viewint = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var viewlong = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_LONG ] );
+        var viewptr = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_PTR ] );
+        var actual_type_return = viewint.alloc();
+        var actual_format_return = viewint.alloc();
+        var nitems_return = viewlong.alloc();
+        var bytes_after_return = viewlong.alloc();
+        var prop_return = viewptr.alloc();
+        int utf8_string = display.InternAtom("UTF8_STRING");
+        // Get 0 items, to check the size,
+        int r = getfun("XGetWindowProperty")(display.xdisplay, self.xdrawable,
+            property, 0, 0, false,
+            utf8_string,
+            actual_type_return, actual_format_return,
+            nitems_return, bytes_after_return, prop_return);
+        if (r != Success)
+            return string(null);
+        var prop = viewptr[prop_return, 0];
+        Free(prop);
+        int n = viewint[bytes_after_return, 0];
+        if (n == 0)
+            return "";
+        n = (n + 3 ) / 4;
+        // Now get the size obtained
+        r = getfun("XGetWindowProperty")(display.xdisplay, self.xdrawable,
+            property, 0, n, true,
+            utf8_string,
+            actual_type_return, actual_format_return, nitems_return,
+            bytes_after_return, prop_return);
+        if (r != Success)
+            return string(null);
+        prop = viewptr[prop_return, 0];
         string result = prop.as_string("utf8");
         Free(prop);
         return result;
@@ -1672,13 +1720,28 @@ class EditBox : ChildWindow
     }
     function onselectionnotify(event)
     {
+        var display = self.display;
         var view = getselectionview();
         var data = event.eventdata;
         int selection = view[data, 5];
+        int target = view[data, 6];
         int property = view[data, 7];
-        if (property == None)
+        if (property == None) {
+            if (target == display.InternAtom("UTF8_STRING")) {
+                // Retry with plain string type
+                int clipboard = display.InternAtom("CLIPBOARD");
+                getfun("XConvertSelection")(display.xdisplay,
+                        clipboard,
+                        XA_STRING,
+                        clipboard, self.xdrawable, event.time());
+            }
             return;
-        string pasted = self.GetPropertyString(property);
+        }
+        string pasted;
+        if (target == XA_STRING)
+            pasted = self.GetPropertyString(property);
+        else
+            pasted = self.GetPropertyUtf8String(property);
         if (pasted == null)
             return;
         int l = length(pasted);
@@ -1691,7 +1754,7 @@ class EditBox : ChildWindow
         self.pos =: pos;
         int offset = self.offset;
         int width = self.width;
-        int x = self.font.getTextxOff(self.display, substr(text, 0, pos));
+        int x = self.font.getTextxOff(display, substr(text, 0, pos));
         if (x - offset >= width)
             self.offset =: x - width / 4;
         self.drawall();
@@ -1701,8 +1764,12 @@ class EditBox : ChildWindow
     {
         var display = self.display;
         int clipboard = display.InternAtom("CLIPBOARD");
+        // First try to get a utf8 string. onselectonnotify will
+        // do some fallback.
         getfun("XConvertSelection")(display.xdisplay,
-                clipboard, XA_STRING, clipboard, self.xdrawable, time);
+                clipboard,
+                display.InternAtom("UTF8_STRING"),
+                clipboard, self.xdrawable, time);
     }
 }
 
