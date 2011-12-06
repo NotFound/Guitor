@@ -136,6 +136,7 @@ class ColorSelector : ChildWindow, BoxedSelector
 class ToolSelector : ChildWindow, BoxedSelector
 {
     var pizarra;
+    var pixmap;
     function ToolSelector(pizarra, int x, int y)
     {
         self.BoxedSelector(pizarra.display, 2, 2);
@@ -144,6 +145,32 @@ class ToolSelector : ChildWindow, BoxedSelector
         self.OnExpose += evhandler(self, "onExpose");
         self.OnButtonPress += evhandler(self, "onButtonPress");
         self.Map();
+        // Ugly icon for hand drawn lines
+        self.pixmap = self.CreatePixmapFromBuffer(<<:
+/* XPM */
+static char *test[] = {
+"16 16 2 1",
+" 	c #FFFFFF",
+"+	c #000000",
+"                ",
+"      ++++      ",
+"     +          ",
+"     +          ",
+"      ++++      ",
+"          +     ",
+"           +    ",
+"            +   ",
+"           +    ",
+"          +     ",
+"        ++      ",
+"       +        ",
+"      +         ",
+"     +          ",
+" ++++           ",
+"                ",
+};
+:>>
+        );
     }
     function onExpose(event)
     {
@@ -160,9 +187,7 @@ class ToolSelector : ChildWindow, BoxedSelector
                 self.DrawRectangle(x, y, boxwidth - 1, boxheight - 1);
                 switch (i * 2 + j) {
                   case 0:
-                    self.DrawLine(x +  3, y +  3, x +  5, y + 9);
-                    self.DrawLine(x +  5, y +  9, x + 11, y + 12);
-                    self.DrawLine(x + 11, y + 12, x + 12, y + 13);
+                    self.CopyArea(self.pixmap, 0, 0, 16, 16, x + 1, y + 1);
                     break;
                   case 1:
                     self.DrawLine(x + 2, y + 3, x + 10, y + 14);
