@@ -18,6 +18,7 @@ namespace Xlib__nci
 const string
     XLIB          = "guitor_xlib",
     XFTLIB        = "guitor_xftlib",
+    XPMLIB        = "guitor_xpmlib",
     EVENTPAD      = "guitor_eventpad",
     ANYVIEW       = "guitor_anyview",
     BUTTONVIEW    = "guitor_buttonview",
@@ -70,6 +71,21 @@ function loadXftlib()
     return l;
 }
 
+function loadXpmlib()
+{
+    string libs[] = [
+        "libXpm",
+        "libXpm.so",
+        "libXpm.so.4"
+    ];
+    var l;
+    for (string lib in libs) {
+        l= loadlib(lib);
+        if (l) break;
+    }
+    return l;
+}
+
 function getlib()
 {
     var ns = namespace Xlib__nci;
@@ -85,6 +101,15 @@ function getxftlib()
     var l = ns[XFTLIB];
     if (l == null)
         ns[XFTLIB] = l = loadXftlib();
+    return l;
+}
+
+function getxpmlib()
+{
+    var ns = namespace Xlib__nci;
+    var l = ns[XPMLIB];
+    if (l == null)
+        ns[XPMLIB] = l = loadXpmlib();
     return l;
 }
 
@@ -641,6 +666,12 @@ function create_function(string funcname)
       case "XConvertSelection":
         sig = "vpiiiil";
         break;
+      case "XCopyArea":
+        sig = "vpiipiiiiii";
+        break;
+      case "XSetClipMask":
+        sig = "vppi";
+        break;
       default:
         throw "Function " + funcname + " unknown";
     }
@@ -678,6 +709,20 @@ function create_xft_function(string funcname)
         throw "Function " + funcname + " unknown";
     }
     var func = dlfunc(getxftlib(), funcname, sig);
+    return func;
+}
+
+function create_xpm_function(string funcname)
+{
+    string sig;
+    switch (funcname) {
+      case "XpmCreatePixmapFromBuffer":
+        sig = "ipipppp";
+        break;
+      default:
+        throw "Function " + funcname + " unknown";
+    }
+    var func = dlfunc(getxpmlib(), funcname, sig);
     return func;
 }
 
@@ -728,6 +773,15 @@ function getxftfun(string funcname)
     var fun = ns[funcname];
     if (fun == null)
         ns[funcname] = fun = create_xft_function(funcname);
+    return fun;
+}
+
+function getxpmfun(string funcname)
+{
+    var ns = namespace Xlib__nci;
+    var fun = ns[funcname];
+    if (fun == null)
+        ns[funcname] = fun = create_xpm_function(funcname);
     return fun;
 }
 

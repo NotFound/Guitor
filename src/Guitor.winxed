@@ -27,6 +27,7 @@ extern function str_to_cstring;
 extern function string_from_nci;
 extern function getfun;
 extern function getxftfun;
+extern function getxpmfun;
 extern function geteventpad;
 extern function getanyview;
 extern function getstructureview;
@@ -349,6 +350,39 @@ class Display
         var font = new XftFont;
         font.xftfont = xftfont;
         return font;
+    }
+    function _CreatePixmapFromBuffer(int xdrawable, string buffer)
+    {
+        var fun = getxpmfun("XpmCreatePixmapFromBuffer");
+        if (fun == null || ! fun)
+            throw "Cannot create pixmap from buffer";
+        var intview = new ["StructView"]( [DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var pixmap_return = intview.alloc();
+        var shapemask_return;
+        var attributes;
+        int r = fun(self.xdisplay, xdrawable, str_to_cstring(buffer),
+            pixmap_return, shapemask_return, attributes);
+        if (r != 0)
+            return None;
+        return int(intview[pixmap_return, 0]);
+    }
+    function _CreatePixmapAndShapeFromBuffer(int xdrawable, string buffer)
+    {
+        var fun = getxpmfun("XpmCreatePixmapFromBuffer");
+        if (fun == null || ! fun)
+            throw "Cannot create pixmap from buffer";
+        var intview = new ["StructView"]( [DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var pixmap_return = intview.alloc();
+        var shapemask_return = intview.alloc();;
+        var attributes;
+        int r = fun(self.xdisplay, xdrawable, str_to_cstring(buffer),
+            pixmap_return, shapemask_return, attributes);
+        int pixmap = None, shape = None;
+        if (r == 0) {
+            pixmap = int(intview[pixmap_return, 0]);
+            shape = int(intview[shapemask_return, 0]);
+        }
+        return pixmap, shape;
     }
 }
 
@@ -846,6 +880,13 @@ class GraphicContext
     {
         getfun("XSetSubwindowMode")(display.xdisplay, self.xgc, mode);
     }
+    function SetClipMask(pixmap)
+    {
+        int xpixmap = None;
+        if (pixmap != null)
+            xpixmap = pixmap.xdrawable;
+        getfun("XSetClipMask")(self.display.xdisplay, self.xgc, xpixmap);
+    }
 
     function DrawPoint(display, drawable, int x, int y)
     {
@@ -988,6 +1029,48 @@ class Drawable
         if (font == null)
             return 0;
         return font.getTextWidth(self.display, text);
+    }
+    function SetClipMask(pixmap)
+    {
+        self.getgc().SetClipMask(pixmap);
+    }
+    function CopyArea(src, int src_x, int src_y, int width, int height, int x, int y)
+    {
+        getfun("XCopyArea")(self.display.xdisplay, src.xdrawable,
+                self.xdrawable, self.getgc().xgc,
+                src_x, src_y, width, height, x, y);
+    }
+    function CreatePixmapFromBuffer(string buffer)
+    {
+        var display = self.display;
+        int pixmap = display._CreatePixmapFromBuffer(self.xdrawable, buffer);
+        if (pixmap != None) {
+            var result = new Drawable;
+            result.display = display;
+            result.xdrawable = pixmap;
+            return result;
+        }
+        else
+            return null;
+    }
+    function CreatePixmapAndShapeFromBuffer(string buffer)
+    {
+        var display = self.display;
+        :(int xpixmap, int xshape) =
+                display._CreatePixmapAndShapeFromBuffer(self.xdrawable, buffer);
+        var pixmap;
+        var shape;
+        if (xpixmap != None) {
+            pixmap = new Drawable;
+            pixmap.display = display;
+            pixmap.xdrawable = xpixmap;
+        }
+        if (xshape != None) {
+            shape = new Drawable;
+            shape.display = display;
+            shape.xdrawable = xshape;
+        }
+        return pixmap, shape;
     }
 }
 
