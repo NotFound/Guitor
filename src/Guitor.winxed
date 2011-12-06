@@ -48,7 +48,7 @@ extern function getview;
 
 extern function newAtomlist;
 
-function Free(p)
+function XFree(p)
 {
     getfun("XFree")(p);
 }
@@ -202,7 +202,7 @@ class Display
         __DEBUG__ && cry(__FUNCTION__);
         var name = getfun("XGetAtomName")(self.xdisplay, atom);
         string sname = name.as_string("ascii");
-        Free(name);
+        XFree(name);
         return sname;
     }
     function AtomlistFromStrings(var atomnames)
@@ -1097,7 +1097,7 @@ class Window : Drawable
         int result[];
         for (int i = 0; i < n; ++i)
             push(result, int(view[props, i]));
-        Free(props);
+        XFree(props);
         return result;
     }
     function LookupString(event)
@@ -1138,7 +1138,7 @@ class Window : Drawable
         if (r != Success)
             return string(null);
         var prop = viewptr[prop_return, 0];
-        Free(prop);
+        XFree(prop);
         int n = viewint[bytes_after_return, 0];
         if (n == 0)
             return "";
@@ -1162,7 +1162,7 @@ class Window : Drawable
         catch () {
             result = prop.as_string("binary");
         }
-        Free(prop);
+        XFree(prop);
         return result;
     }
     function GetPropertyUtf8String(int property)
@@ -1186,7 +1186,7 @@ class Window : Drawable
         if (r != Success)
             return string(null);
         var prop = viewptr[prop_return, 0];
-        Free(prop);
+        XFree(prop);
         int n = viewint[bytes_after_return, 0];
         if (n == 0)
             return "";
@@ -1201,7 +1201,7 @@ class Window : Drawable
             return string(null);
         prop = viewptr[prop_return, 0];
         string result = prop.as_string("utf8");
-        Free(prop);
+        XFree(prop);
         return result;
     }
 }
