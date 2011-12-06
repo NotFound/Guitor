@@ -1642,20 +1642,24 @@ class MenuItem
 
 class MenuWindow : ChildWindow
 {
+    const int CURRENT_NONE = -1;
     var menu;
     var width;
     var height;
     var hbase;
     var hitem;
+    var fgcolor;
+    var bgcolor;
     var enter;
     var inside;
+    var current;
     function MenuWindow(parent, int x, int y, menu)
     {
         self.menu = menu;
         var items = menu.items;
         int nitems = elements(items);
-        int hitem = menu.font.getHeight() + 4;
-        int hbase = menu.font.getAscent();
+        int hitem = menu.font.getHeight();
+        int hbase = menu.font.getAscent() + 1;
         int height = hitem * nitems + 2;
         int width = menu.font.getTextWidth(menu.display, menu.items[0].name);
         self.height = height;
@@ -1664,30 +1668,77 @@ class MenuWindow : ChildWindow
         self.hbase = hbase;
         self.enter = false;
         self.inside = false;
-        var bgcolor =  parent.display.ParseColor("grey");
+        var bgcolor = parent.display.ParseColor("grey");
+        var fgcolor = parent.display.ParseColor("black");
+        self.fgcolor = fgcolor;
+        self.bgcolor = bgcolor;
+        self.current = CURRENT_NONE;
         self.ChildWindow(parent, x + 1, y + 1, width, height,
-                { "background-color" : parent.display.ParseColor("grey") } );
-        self.SetForeground("black");
+                { "background-color" : bgcolor } );
+        self.SetForeground(fgcolor);
+        self.SetBackground(bgcolor);
         self.OnExpose += function (event) { self.onexpose(event); };
         self.OnEnter += function (event) { self.onenter(event); };
         self.OnLeave += function (event) { self.onleave(event); };
         self.OnButtonPress += function (event) { self.onbuttonpress(event); };
         self.OnButtonRelease += function (event) { self.onbuttonrelease(event); };
+        self.OnMotion += function (event) { self.onmotion(event); };
     }
-    function onexpose(event)
+    function drawitem(int nitem, fgcolor, bgcolor)
     {
         var items = self.menu.items;
         int hitem = self.hitem;
         int hbase = self.hbase;
+        int width = self.width;
+        self.SetForeground(bgcolor);
+        self.FillRectangle(1, nitem * hitem, width - 2, hitem);
+        self.SetForeground(fgcolor);
+        self.SetBackground(bgcolor);
+        self.DrawString(1, hbase + nitem * hitem, items[nitem].name);
+    }
+    function changecurrent(int newcurrent)
+    {
+        int current = self.current;
+        if (current == newcurrent)
+            return;
+        var items = self.menu.items;
+        int hitem = self.hitem;
+        int hbase = self.hbase;
+        int width = self.width;
+        var fgcolor = self.fgcolor;
+        var bgcolor = self.bgcolor;
+        if (current != CURRENT_NONE)
+            self.drawitem(current, fgcolor, bgcolor);
+        if (newcurrent != CURRENT_NONE)
+            self.drawitem(newcurrent, bgcolor, fgcolor);
+        self.current =: newcurrent;
+    }
+    function setcurrent(int x, int y)
+    {
+        var items = self.menu.items;
+        int nitem = y / self.hitem;
+        if (x < 0 || x > self.width || nitem < 0 || nitem >= elements(items))
+            nitem = CURRENT_NONE;
+        self.changecurrent(nitem);
+    }
+    function onexpose(event)
+    {
+        var items = self.menu.items;
+        int current = self.current;
+        var fgcolor = self.fgcolor;
+        var bgcolor = self.bgcolor;
         self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
-        for (int i = 0, n = elements(items); i < n; ++i) {
-            self.DrawString(0, hbase + i * hitem, items[i].name);
-        }
+        for (int i = 0, n = elements(items); i < n; ++i)
+            if (i == current)
+                self.drawitem(i, bgcolor, fgcolor);
+            else
+                self.drawitem(i, fgcolor, bgcolor);
     }
     function onenter(event)
     {
         self.enter =: true;
         self.inside =: true;
+        self.setcurrent(event.x(), event.y());
     }
     function onleave(event)
     {
@@ -1700,11 +1751,15 @@ class MenuWindow : ChildWindow
             self.Destroy();
         }
     }
+    function onmotion(event)
+    {
+        self.setcurrent(event.x(), event.y());
+    }
     function onbuttonrelease(event)
     {
-        int x = event.x();
-        int y = event.y();
-        if (x < 0 || y < 0 || x >= self.width || y >= self.height) {
+        self.setcurrent(event.x(), event.y());
+        int current = self.current;
+        if (current == CURRENT_NONE) {
             if (self.enter) {
                 self.UngrabPointer(event.time());
                 self.Destroy();
@@ -1713,12 +1768,8 @@ class MenuWindow : ChildWindow
         else {
             self.UngrabPointer(event.time());
             self.Destroy();
-            var items = self.menu.items;
-            int nitem = y / self.hitem;
-            if (nitem >= 0 && nitem < elements(items)) {
-                var action = items[nitem].action;
-                action();
-            }
+            var action = self.menu.items[current].action;
+            action();
         }
     }
 }
