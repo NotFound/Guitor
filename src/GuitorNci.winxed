@@ -29,6 +29,7 @@ const string
     EXPOSEVIEW    = "guitor_exposeview",
     FOCUSVIEW     = "guitor_focusview",
     CROSSINGVIEW  = "guitor_crossingview",
+    SELECTIONVIEW = "guitor_selectionview",
     CLIENTVIEW    = "guitor_clientview",
     XAWMHINTSVIEW = "guitor_xawmhintsview",
     ATOMVIEW      = "guitor_atomview",
@@ -354,7 +355,24 @@ function getcrossingview()
     return st;
 }
 
-
+function getselectionview()
+{
+    var ns = namespace Xlib__private;
+    var st = ns[SELECTIONVIEW];
+    if (st == null)
+        ns[SELECTIONVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 9,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // Serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // requestor
+            XLIB_Atom,     // selection
+            XLIB_Atom,     // target
+            XLIB_Atom,     // property
+            XLIB_time_t    // time
+        ] );
+    return st;
+}
 
 function getclientview()
 {
@@ -666,6 +684,12 @@ function create_function(string funcname)
         break;
       case "XUngrabPointer":
         sig = "vpl";
+        break;
+      case "XGetWindowProperty":
+        sig = "ipiilliippppp";
+        break;
+      case "XConvertSelection":
+        sig = "vpiiiil";
         break;
       default:
         throw "Function " + funcname + " unknown";

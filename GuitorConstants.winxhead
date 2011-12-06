@@ -38,6 +38,7 @@ const int
 
 // Some commonly used values:
 const int None = 0;
+const int Success = 0;
 const int CurrentTime = 0;
 
 // Enter and Leave
@@ -62,6 +63,15 @@ const int
 // WM hints
 const int InputHint = 1;
 
+// Some predefined atoms
+const int
+    XA_PRIMARY          =  1,
+    XA_SECONDARY        =  2,
+    XA_ATOM             =  4,
+    XA_STRING           = 31,
+    XA_WM_COMMAND       = 34,
+    XA_WM_TRANSIENT_FOR = 68;
+
 namespace Events
 {
 
@@ -79,19 +89,22 @@ const int
     FocusChangeMask     = 0x00200000;
 // Event types
 const int
-    KeyPress        =  2,
-    KeyRelease      =  3,
-    ButtonPress     =  4,
-    ButtonRelease   =  5,
-    MotionNotify    =  6,
-    EnterNotify     =  7,
-    LeaveNotify     =  8,
-    FocusIn         =  9,
-    FocusOut        = 10,
-    Expose          = 12,
-    DestroyNotify   = 17,
-    ConfigureNotify = 22,
-    ClientMessage   = 33;
+    KeyPress         =  2,
+    KeyRelease       =  3,
+    ButtonPress      =  4,
+    ButtonRelease    =  5,
+    MotionNotify     =  6,
+    EnterNotify      =  7,
+    LeaveNotify      =  8,
+    FocusIn          =  9,
+    FocusOut         = 10,
+    Expose           = 12,
+    DestroyNotify    = 17,
+    ConfigureNotify  =  22,
+    SelectionClear   = 29,
+    SelectionRequest = 30,
+    SelectionNotify  = 31,
+    ClientMessage    = 33;
 
 }
 

@@ -36,6 +36,7 @@ extern function getfocusview;
 extern function getmotionview;
 extern function getbuttonview;
 extern function getkeyview;
+extern function getselectionview;
 extern function getclientview;
 extern function getxcolorview;
 extern function getxftcolorview;
@@ -1117,6 +1118,44 @@ class Window : Drawable
     {
         getfun("XUngrabPointer")(self.display.xdisplay, time);
     }
+    function GetPropertyString(int property)
+    {
+        var display = self.display;
+        var viewint = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var viewlong = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_LONG ] );
+        var viewptr = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_PTR ] );
+        var actual_type_return = viewint.alloc();
+        var actual_format_return = viewint.alloc();
+        var nitems_return = viewlong.alloc();
+        var bytes_after_return = viewlong.alloc();
+        var prop_return = viewptr.alloc();
+        // Get 0 items, to check the size,
+        int r = getfun("XGetWindowProperty")(display.xdisplay, self.xdrawable,
+            property, 0, 0, false,
+            XA_STRING,
+            actual_type_return, actual_format_return,
+            nitems_return, bytes_after_return, prop_return);
+        if (r != Success)
+            return string(null);
+        var prop = viewptr[prop_return, 0];
+        Free(prop);
+        int n = viewint[bytes_after_return, 0];
+        if (n == 0)
+            return "";
+        n = (n + 3 ) / 4;
+        // Now get the size obtained
+        r = getfun("XGetWindowProperty")(display.xdisplay, self.xdrawable,
+            property, 0, n, true,
+            XA_STRING,
+            actual_type_return, actual_format_return, nitems_return,
+            bytes_after_return, prop_return);
+        if (r != Success)
+            return string(null);
+        prop = viewptr[prop_return, 0];
+        string result = prop.as_string("utf8");
+        Free(prop);
+        return result;
+    }
 }
 
 //**************************************************************
@@ -1229,6 +1268,7 @@ class ListenerWindow : Window
     var OnLeave;
     var OnFocusIn;
     var OnFocusOut;
+    var OnSelectionNotify;
     var OnClientMessage;
     function ListenerWindow(controller)
     {
@@ -1244,6 +1284,7 @@ class ListenerWindow : Window
         self.OnLeave = new EventHandler(self, LeaveWindowMask);
         self.OnFocusIn = new EventHandler(self, FocusChangeMask);
         self.OnFocusOut = new EventHandler(self, FocusChangeMask);
+        self.OnSelectionNotify = new EventHandler(self, 0);
         self.OnClientMessage = new EventHandler(self, 0);
         self.controller = controller;
         controller.register(self);
@@ -1293,6 +1334,9 @@ class ListenerWindow : Window
             break;
           case LeaveNotify:
             handler = self.OnLeave;
+            break;
+          case SelectionNotify:
+            handler = self.OnSelectionNotify;
             break;
           case ClientMessage:
             handler = self.OnClientMessage;
@@ -1431,6 +1475,7 @@ class EditBox : ChildWindow
         self.OnKeyPress += function (event) { self.onkeypress(event); };
         self.OnFocusIn += function (event) { self.onfocusin(event); };
         self.OnFocusOut += function (event) { self.onfocusout(event); };
+        self.OnSelectionNotify += function (event) { self.onselectionnotify(event); };
     }
     function getValue()
     {
@@ -1606,6 +1651,9 @@ class EditBox : ChildWindow
         switch (key) {
           case "\n": case "\r": case "\e":
             return;
+          case "\x{16}":
+            self.paste(event.time());
+            return;
         }
         self.cursor();
         text = substr(text, 0, pos) + key + substr(text, pos);
@@ -1621,6 +1669,40 @@ class EditBox : ChildWindow
 
         self.drawall();
         self.cursor();
+    }
+    function onselectionnotify(event)
+    {
+        var view = getselectionview();
+        var data = event.eventdata;
+        int selection = view[data, 5];
+        int property = view[data, 7];
+        if (property == None)
+            return;
+        string pasted = self.GetPropertyString(property);
+        if (pasted == null)
+            return;
+        int l = length(pasted);
+        self.cursor();
+        int pos = self.pos;
+        string text = self.text;
+        text = substr(text, 0, pos) + pasted + substr(text, pos);
+        pos += l;
+        self.text =: text;
+        self.pos =: pos;
+        int offset = self.offset;
+        int width = self.width;
+        int x = self.font.getTextxOff(self.display, substr(text, 0, pos));
+        if (x - offset >= width)
+            self.offset =: x - width / 4;
+        self.drawall();
+        self.cursor();
+    }
+    function paste(int time)
+    {
+        var display = self.display;
+        int clipboard = display.InternAtom("CLIPBOARD");
+        getfun("XConvertSelection")(display.xdisplay,
+                clipboard, XA_STRING, clipboard, self.xdrawable, time);
     }
 }
 
