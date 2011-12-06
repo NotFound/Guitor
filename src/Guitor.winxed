@@ -1691,7 +1691,7 @@ class MenuWindow : ChildWindow
         int hbase = self.hbase;
         int width = self.width;
         self.SetForeground(bgcolor);
-        self.FillRectangle(1, nitem * hitem, width - 2, hitem);
+        self.FillRectangle(1, 1 + nitem * hitem, width - 2, hitem);
         self.SetForeground(fgcolor);
         self.SetBackground(bgcolor);
         self.DrawString(1, hbase + nitem * hitem, items[nitem].name);
@@ -1716,7 +1716,7 @@ class MenuWindow : ChildWindow
     function setcurrent(int x, int y)
     {
         var items = self.menu.items;
-        int nitem = y / self.hitem;
+        int nitem = (y - 1)/ self.hitem;
         if (x < 0 || x > self.width || nitem < 0 || nitem >= elements(items))
             nitem = CURRENT_NONE;
         self.changecurrent(nitem);
