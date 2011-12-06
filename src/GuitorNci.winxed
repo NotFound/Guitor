@@ -11,11 +11,9 @@ namespace Guitor
 //                 Internal helper functions
 //**************************************************************
 
-namespace Xlib__private
+
+namespace Xlib__nci
 {
-
-$include_const "datatypes.pasm";
-
 // Variable names
 const string
     XLIB          = "guitor_xlib",
@@ -74,7 +72,7 @@ function loadXftlib()
 
 function getlib()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var l = ns[XLIB];
     if (l == null)
         ns[XLIB] = l = loadXlib();
@@ -83,12 +81,21 @@ function getlib()
 
 function getxftlib()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var l = ns[XFTLIB];
     if (l == null)
         ns[XFTLIB] = l = loadXftlib();
     return l;
 }
+
+}
+
+namespace Xlib__private
+{
+
+$include_const "datatypes.pasm";
+
+using namespace Xlib__nci;
 
 //**************************************************************
 /*
@@ -102,240 +109,179 @@ const int XLIB_Atom   = DATATYPE_LONG;
 const int XLIB_time_t = DATATYPE_LONG;
 const int XLIB_Window = DATATYPE_LONG;
 
-function create_eventpad()
-{
-    const int PAD = 24;
-    int viewdata [PAD + 2] = [ DATATYPE_STRUCT, PAD ];
-    for (int i = 0; i < PAD; ++i)
-        viewdata[i + 2] = DATATYPE_LONG;
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
-function create_anyview()
-{
-    int viewdata [] = [
-        DATATYPE_STRUCT, 5,
-        DATATYPE_INT,  // type
-        DATATYPE_LONG, // Serial
-        XLIB_Bool,     // send event
-        DATATYPE_PTR,  // display
-        XLIB_Window   // window
-    ];
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
-function create_buttonview()
-{
-    int viewdata [] = [
-        DATATYPE_STRUCT, 14,
-        DATATYPE_INT,  // type
-        DATATYPE_LONG, // Serial
-        XLIB_Bool,     // send event
-        DATATYPE_PTR,  // display
-        XLIB_Window,   // window
-        XLIB_Window,   // root
-        XLIB_Window,   // subwindow
-        XLIB_time_t,   // time
-        DATATYPE_INT,  // x
-        DATATYPE_INT,  // y
-        DATATYPE_INT,  // x_root
-        DATATYPE_INT,  // y_root
-        DATATYPE_INT,  // state
-        DATATYPE_INT,  // button
-        XLIB_Bool      // same_screen
-    ];
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
-function create_keyview()
-{
-    int viewdata [] = [
-        DATATYPE_STRUCT, 14,
-        DATATYPE_INT,  // type
-        DATATYPE_LONG, // Serial
-        XLIB_Bool,     // send event
-        DATATYPE_PTR,  // display
-        XLIB_Window,   // window
-        XLIB_Window,   // root
-        XLIB_Window,   // subwindow
-        XLIB_time_t,   // time
-        DATATYPE_INT,  // x
-        DATATYPE_INT,  // y
-        DATATYPE_INT,  // x_root
-        DATATYPE_INT,  // y_root
-        DATATYPE_INT,  // state
-        DATATYPE_INT,  // keycode
-        XLIB_Bool      // same_screen
-    ];
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
-function create_motionview()
-{
-    int viewdata [] = [
-        DATATYPE_STRUCT, 14,
-        DATATYPE_INT,  // type
-        DATATYPE_LONG, // Serial
-        XLIB_Bool,     // send event
-        DATATYPE_PTR,  // display
-        XLIB_Window,   // window
-        XLIB_Window,   // root
-        XLIB_Window,   // subwindow
-        XLIB_time_t,   // time
-        DATATYPE_INT,  // x
-        DATATYPE_INT,  // y
-        DATATYPE_INT,  // x_root
-        DATATYPE_INT,  // y_root
-        DATATYPE_INT,  // state
-        DATATYPE_INT   // keycode
-    ];
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
-function create_structureview()
-{
-    int viewdata [] = [
-        DATATYPE_STRUCT, 13,
-        DATATYPE_INT,  // type
-        DATATYPE_LONG, // Serial
-        XLIB_Bool,     // send event
-        DATATYPE_PTR,  // display
-        XLIB_Window,   // event window
-        XLIB_Window,   // window
-        DATATYPE_INT,  // x
-        DATATYPE_INT,  // y
-        DATATYPE_INT,  // width
-        DATATYPE_INT,  // height
-        DATATYPE_INT,  // border_width
-        XLIB_Window,   // above
-        XLIB_Bool      // override_redirect
-    ];
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
-function create_exposeview()
-{
-    int viewdata [] = [
-        DATATYPE_STRUCT, 10,
-        DATATYPE_INT,  // type
-        DATATYPE_LONG, // Serial
-        XLIB_Bool,     // send event
-        DATATYPE_PTR,  // display
-        XLIB_Window,   // window
-        DATATYPE_INT,  // x
-        DATATYPE_INT,  // y
-        DATATYPE_INT,  // width
-        DATATYPE_INT,  // height
-        DATATYPE_INT   // count
-    ];
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
-function create_focusview()
-{
-    int viewdata [] = [
-        DATATYPE_STRUCT, 7,
-        DATATYPE_INT,  // type
-        DATATYPE_LONG, // Serial
-        XLIB_Bool,     // send event
-        DATATYPE_PTR,  // display
-        XLIB_Window,   // window
-        DATATYPE_INT,  // mode
-        DATATYPE_INT   // detail
-    ];
-    var view = new ["StructView"](viewdata);
-    return view;
-}
-
 //**************************************************************
 
 function geteventpad()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[EVENTPAD];
-    if (st == null)
-        ns[EVENTPAD] = st = create_eventpad();
+    if (st == null) {
+        const int PAD = 24;
+        int viewdata [PAD + 2] = [ DATATYPE_STRUCT, PAD ];
+        for (int i = 0; i < PAD; ++i)
+            viewdata[i + 2] = DATATYPE_LONG;
+        ns[EVENTPAD] = st = new ["StructView"](viewdata);
+    }
     return st;
 }
 
 function getanyview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[ANYVIEW];
     if (st == null)
-        ns[ANYVIEW] = st = create_anyview();
+        ns[ANYVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 5,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window    // window
+        ] );
     return st;
 }
 
 function getbuttonview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[BUTTONVIEW];
     if (st == null)
-        ns[BUTTONVIEW] = st = create_buttonview();
+        ns[BUTTONVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 14,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // window
+            XLIB_Window,   // root
+            XLIB_Window,   // subwindow
+            XLIB_time_t,   // time
+            DATATYPE_INT,  // x
+            DATATYPE_INT,  // y
+            DATATYPE_INT,  // x_root
+            DATATYPE_INT,  // y_root
+            DATATYPE_INT,  // state
+            DATATYPE_INT,  // button
+            XLIB_Bool      // same_screen
+        ] );
     return st;
 }
 
 function getkeyview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[KEYVIEW];
     if (st == null)
-        ns[KEYVIEW] = st = create_keyview();
+        ns[KEYVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 14,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // window
+            XLIB_Window,   // root
+            XLIB_Window,   // subwindow
+            XLIB_time_t,   // time
+            DATATYPE_INT,  // x
+            DATATYPE_INT,  // y
+            DATATYPE_INT,  // x_root
+            DATATYPE_INT,  // y_root
+            DATATYPE_INT,  // state
+            DATATYPE_INT,  // keycode
+            XLIB_Bool      // same_screen
+        ] );
     return st;
 }
 
 function getmotionview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[MOTIONVIEW];
     if (st == null)
-        ns[MOTIONVIEW] = st = create_motionview();
+        ns[MOTIONVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 14,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // window
+            XLIB_Window,   // root
+            XLIB_Window,   // subwindow
+            XLIB_time_t,   // time
+            DATATYPE_INT,  // x
+            DATATYPE_INT,  // y
+            DATATYPE_INT,  // x_root
+            DATATYPE_INT,  // y_root
+            DATATYPE_INT,  // state
+            DATATYPE_INT   // keycode
+        ] );
     return st;
 }
 
 function getstructureview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[STRUCTUREVIEW];
     if (st == null)
-        ns[STRUCTUREVIEW] = st = create_structureview();
+        ns[STRUCTUREVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 13,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // event window
+            XLIB_Window,   // window
+            DATATYPE_INT,  // x
+            DATATYPE_INT,  // y
+            DATATYPE_INT,  // width
+            DATATYPE_INT,  // height
+            DATATYPE_INT,  // border_width
+            XLIB_Window,   // above
+            XLIB_Bool      // override_redirect
+        ] );
     return st;
 }
 
 function getexposeview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[EXPOSEVIEW];
     if (st == null)
-        ns[EXPOSEVIEW] = st = create_exposeview();
+        ns[EXPOSEVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 10,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // window
+            DATATYPE_INT,  // x
+            DATATYPE_INT,  // y
+            DATATYPE_INT,  // width
+            DATATYPE_INT,  // height
+            DATATYPE_INT   // count
+        ] );
     return st;
 }
 
 function getfocusview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[FOCUSVIEW];
     if (st == null)
-        ns[FOCUSVIEW] = st = create_focusview();
+        ns[FOCUSVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 7,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // window
+            DATATYPE_INT,  // mode
+            DATATYPE_INT   // detail
+        ] );
     return st;
 }
 
 function getcrossingview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[CROSSINGVIEW];
     if (st == null)
         ns[CROSSINGVIEW] = st = new ["StructView"] ( [ DATATYPE_STRUCT, 17,
             DATATYPE_INT,  // type
-            DATATYPE_LONG, // Serial
+            DATATYPE_LONG, // serial
             XLIB_Bool,     // send event
             DATATYPE_PTR,  // display
             XLIB_Window,   // window
@@ -357,12 +303,12 @@ function getcrossingview()
 
 function getselectionview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[SELECTIONVIEW];
     if (st == null)
         ns[SELECTIONVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 9,
             DATATYPE_INT,  // type
-            DATATYPE_LONG, // Serial
+            DATATYPE_LONG, // serial
             XLIB_Bool,     // send event
             DATATYPE_PTR,  // display
             XLIB_Window,   // requestor
@@ -376,12 +322,12 @@ function getselectionview()
 
 function getclientview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[CLIENTVIEW];
     if (st == null)
         ns[CLIENTVIEW] = st = new ["StructView"] ( [ DATATYPE_STRUCT, 10,
             DATATYPE_INT,  // type
-            DATATYPE_LONG, // Serial
+            DATATYPE_LONG, // serial
             XLIB_Bool,     // send event
             DATATYPE_PTR,  // display
             DATATYPE_INT,  // window
@@ -394,6 +340,10 @@ function getclientview()
     return st;
 }
 
+//**************************************************************
+
+// Other structures
+
 function getatomview(int n)
 {
     int init[2 + n] = [ DATATYPE_STRUCT, n ];
@@ -404,7 +354,7 @@ function getatomview(int n)
 
 function getxawmhints()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[XAWMHINTSVIEW];
     if (st == null)
         ns[XAWMHINTSVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 9,
@@ -423,7 +373,7 @@ function getxawmhints()
 
 function getxcolorview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[XCOLORVIEW];
     if (st == null)
         ns[XCOLORVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 6,
@@ -439,7 +389,7 @@ function getxcolorview()
 
 function getxftcolorview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[XFTCOLORVIEW];
     if (st == null)
         ns[XFTCOLORVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 5,
@@ -454,7 +404,7 @@ function getxftcolorview()
 
 function getglyphinfoview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[GLYPHINFOVIEW];
     if (st == null)
         ns[GLYPHINFOVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 6,
@@ -470,7 +420,7 @@ function getglyphinfoview()
 
 function getxfontview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[XFONTVIEW];
     if (st == null)
         ns[XFONTVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 24,
@@ -506,7 +456,7 @@ function getxfontview()
 
 function getxftfontview()
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var st = ns[XFTFONTVIEW];
     if (st == null)
         ns[XFTFONTVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 5,
@@ -765,7 +715,7 @@ function newAtomlist(int n)
 
 function getfun(string funcname)
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var fun = ns[funcname];
     if (fun == null)
         ns[funcname] = fun = create_function(funcname);
@@ -774,7 +724,7 @@ function getfun(string funcname)
 
 function getxftfun(string funcname)
 {
-    var ns = namespace Xlib__private;
+    var ns = namespace Xlib__nci;
     var fun = ns[funcname];
     if (fun == null)
         ns[funcname] = fun = create_xft_function(funcname);
