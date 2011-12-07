@@ -1565,6 +1565,8 @@ class TextButton : ChildWindow
             self.OnClick.handle(event);
         };
     }
+    function getwidth() { return int(self.width); }
+    function getheight() { return int(self.height); }
 }
 
 //**************************************************************

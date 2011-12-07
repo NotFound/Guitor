@@ -367,7 +367,6 @@ class Pizarra : TopLevelWindow
         self.TopLevelWindow(controller, title, 0, 0, width, height,
                 { "background-color" : controller.display.ParseColor("grey") } );
         controller.created(self);
-
         self.OnDestroy += function (event)
         {
             self.controller.destroyed(self);
@@ -376,17 +375,30 @@ class Pizarra : TopLevelWindow
         self.OnClientMessage += function (event) { self.onClientMessage(event); };
 
         var colorsel = new ColorSelector(self, 4, 2);
-        int yboard = colorsel.getwidth() + 6;
+        int yboard = colorsel.getwidth();
+        int ytoolset = colorsel.getheight() + 4;
+        var toolsel = new ToolSelector(self, 4, ytoolset);
+        int ybutton = ytoolset + toolsel.getheight() + 2;
+        int ybaux = toolsel.getwidth();
+        if (yboard < ybaux)
+            yboard = ybaux;
+        var button = new TextButton(self, 4, ybutton, 0, 0,
+                "quit", null);
+        ybaux = button.getwidth();
+        if (yboard < ybaux)
+            yboard = ybaux;
+        yboard += 4;
         self.yboard = yboard;
+
         self.board = new Board(self, yboard, 2, width - yboard - 2, height - 4);
         self.board.Map();
-        int y = colorsel.getheight() + 4;
-        var toolsel = new ToolSelector(self, 4, y);
-        y += toolsel.getheight() + 2;
-        var b = new TextButton(self, 4, y, 0, 0,
-                "quit", null);
-        b.OnClick += function (event) { self.Destroy(); };
-        b.Map();
+
+        colorsel.MoveWindow((yboard - colorsel.getwidth()) / 2 , 2);
+        toolsel.MoveWindow((yboard - toolsel.getwidth()) / 2 , ytoolset);
+        button.MoveWindow((yboard - button.getwidth()) / 2, ybutton);
+
+        button.OnClick += function (event) { self.Destroy(); };
+        button.Map();
     }
     function onConfigure(event)
     {
