@@ -37,6 +37,7 @@ extern function getfocusview;
 extern function getmotionview;
 extern function getbuttonview;
 extern function getkeyview;
+extern function getselectionrequestview;
 extern function getselectionview;
 extern function getclientview;
 extern function getxcolorview;
@@ -391,6 +392,15 @@ class Display
             shape = int(intview[shapemask_return, 0]);
         }
         return pixmap, shape;
+    }
+    function SetSelectionOwner(int selection, window, int time)
+    {
+        getfun("XSetSelectionOwner")(self.xdisplay,
+                selection, window.xdrawable, time);
+    }
+    function GetSelectionOwner(int selection)
+    {
+        return int(getfun("XGetSelectionOwner")(self.xdisplay, selection));
     }
 }
 
@@ -788,6 +798,86 @@ class Event
             detail  = view[self.eventdata, 13];
         }
         return detail;
+    }
+    function requestor()
+    {
+        int req = None;
+        int type = self.evtype;
+        var view;
+        int pos;
+        switch (type) {
+          case SelectionRequest:
+            view   = getselectionrequestview();
+            pos = 5;
+            break;
+          case SelectionNotify:
+            view   = getselectionview();
+            pos = 4;
+            break;
+        }
+        if (view != null)
+            req = view[self.eventdata, pos];
+        return req;
+    }
+    function selection()
+    {
+        int req = None;
+        int type = self.evtype;
+        var view;
+        int pos;
+        switch (type) {
+          case SelectionRequest:
+            view   = getselectionrequestview();
+            pos = 6;
+            break;
+          case SelectionNotify:
+            view   = getselectionview();
+            pos = 5;
+            break;
+        }
+        if (view != null)
+            req = view[self.eventdata, pos];
+        return req;
+    }
+    function target()
+    {
+        int req = None;
+        int type = self.evtype;
+        var view;
+        int pos;
+        switch (type) {
+          case SelectionRequest:
+            view   = getselectionrequestview();
+            pos = 7;
+            break;
+          case SelectionNotify:
+            view   = getselectionview();
+            pos = 6;
+            break;
+        }
+        if (view != null)
+            req = view[self.eventdata, pos];
+        return req;
+    }
+    function property()
+    {
+        int req = None;
+        int type = self.evtype;
+        var view;
+        int pos;
+        switch (type) {
+          case SelectionRequest:
+            view   = getselectionrequestview();
+            pos = 8;
+            break;
+          case SelectionNotify:
+            view   = getselectionview();
+            pos = 7;
+            break;
+        }
+        if (view != null)
+            req = view[self.eventdata, pos];
+        return req;
     }
     function message_type()
     {
@@ -1457,6 +1547,7 @@ class ListenerWindow : Window
     var OnLeave;
     var OnFocusIn;
     var OnFocusOut;
+    var OnSelectionRequest;
     var OnSelectionNotify;
     var OnClientMessage;
     function ListenerWindow(controller)
@@ -1473,6 +1564,7 @@ class ListenerWindow : Window
         self.OnLeave = new EventHandler(self, LeaveWindowMask);
         self.OnFocusIn = new EventHandler(self, FocusChangeMask);
         self.OnFocusOut = new EventHandler(self, FocusChangeMask);
+        self.OnSelectionRequest = new EventHandler(self, 0);
         self.OnSelectionNotify = new EventHandler(self, 0);
         self.OnClientMessage = new EventHandler(self, 0);
         self.controller = controller;
@@ -1523,6 +1615,9 @@ class ListenerWindow : Window
             break;
           case LeaveNotify:
             handler = self.OnLeave;
+            break;
+          case SelectionRequest:
+            handler = self.OnSelectionRequest;
             break;
           case SelectionNotify:
             handler = self.OnSelectionNotify;
@@ -1864,11 +1959,9 @@ class EditBox : ChildWindow
     function onselectionnotify(event)
     {
         var display = self.display;
-        var view = getselectionview();
-        var data = event.eventdata;
-        int selection = view[data, 5];
-        int target = view[data, 6];
-        int property = view[data, 7];
+        int selection = event.selection();
+        int target = event.target();
+        int property = event.property();
         if (property == None) {
             if (target == display.InternAtom("UTF8_STRING")) {
                 // Retry with plain string type

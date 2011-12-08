@@ -16,27 +16,28 @@ namespace Xlib__nci
 {
 // Variable names
 const string
-    XLIB          = "guitor_xlib",
-    XFTLIB        = "guitor_xftlib",
-    XPMLIB        = "guitor_xpmlib",
-    EVENTPAD      = "guitor_eventpad",
-    ANYVIEW       = "guitor_anyview",
-    BUTTONVIEW    = "guitor_buttonview",
-    KEYVIEW       = "guitor_keyview",
-    MOTIONVIEW    = "guitor_motionview",
-    STRUCTUREVIEW = "guitor_structureview",
-    EXPOSEVIEW    = "guitor_exposeview",
-    FOCUSVIEW     = "guitor_focusview",
-    CROSSINGVIEW  = "guitor_crossingview",
-    SELECTIONVIEW = "guitor_selectionview",
-    CLIENTVIEW    = "guitor_clientview",
-    XAWMHINTSVIEW = "guitor_xawmhintsview",
-    ATOMVIEW      = "guitor_atomview",
-    XCOLORVIEW    = "guitor_xcolorview",
-    XFTCOLORVIEW  = "guitor_xftcolorview",
-    XFONTVIEW     = "guitor_xfontview",
-    XFTFONTVIEW   = "guitor_xftfontview",
-    GLYPHINFOVIEW = "guitor_glyphinfoview";
+    XLIB                 = "guitor_xlib",
+    XFTLIB               = "guitor_xftlib",
+    XPMLIB               = "guitor_xpmlib",
+    EVENTPAD             = "guitor_eventpad",
+    ANYVIEW              = "guitor_anyview",
+    BUTTONVIEW           = "guitor_buttonview",
+    KEYVIEW              = "guitor_keyview",
+    MOTIONVIEW           = "guitor_motionview",
+    STRUCTUREVIEW        = "guitor_structureview",
+    EXPOSEVIEW           = "guitor_exposeview",
+    FOCUSVIEW            = "guitor_focusview",
+    CROSSINGVIEW         = "guitor_crossingview",
+    SELECTIONVIEW        = "guitor_selectionview",
+    SELECTIONREQUESTVIEW = "guitor_selectionrequestview",
+    CLIENTVIEW           = "guitor_clientview",
+    XAWMHINTSVIEW        = "guitor_xawmhintsview",
+    ATOMVIEW             = "guitor_atomview",
+    XCOLORVIEW           = "guitor_xcolorview",
+    XFTCOLORVIEW         = "guitor_xftcolorview",
+    XFONTVIEW            = "guitor_xfontview",
+    XFTFONTVIEW          = "guitor_xftfontview",
+    GLYPHINFOVIEW        = "guitor_glyphinfoview";
 
 function loadXlib()
 {
@@ -322,6 +323,26 @@ function getcrossingview()
             XLIB_Bool,     // same_screen
             XLIB_Bool,     // focus
             DATATYPE_INT   // state
+        ] );
+    return st;
+}
+
+function getselectionrequestview()
+{
+    var ns = namespace Xlib__nci;
+    var st = ns[SELECTIONREQUESTVIEW];
+    if (st == null)
+        ns[SELECTIONVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 10,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // owner
+            XLIB_Window,   // requestor
+            XLIB_Atom,     // selection
+            XLIB_Atom,     // target
+            XLIB_Atom,     // property
+            XLIB_time_t    // time
         ] );
     return st;
 }
@@ -674,6 +695,12 @@ function create_function(string funcname)
         break;
       case "XGetWindowProperty":
         sig = "ipiilliippppp";
+        break;
+      case "XSetSelectionOwner":
+        sig = "vpiil";
+        break;
+      case "XGetSelectionOwner":
+        sig = "ipi";
         break;
       case "XConvertSelection":
         sig = "vpiiiil";
