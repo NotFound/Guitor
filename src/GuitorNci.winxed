@@ -546,6 +546,12 @@ function create_function(string funcname)
       case "XSetBackground":
         sig = "vppi";
         break;
+      case "XCreatePixmap":
+        sig = "ipiiii";
+        break;
+      case "XFreePixmap":
+        sig = "vpi";
+        break;
       case "XMapWindow":
       case "XUnmapWindow":
         sig = "ipi";

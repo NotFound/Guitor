@@ -1051,11 +1051,10 @@ class Drawable
     function CreatePixmapFromBuffer(string buffer)
     {
         var display = self.display;
-        int pixmap = display._CreatePixmapFromBuffer(self.xdrawable, buffer);
-        if (pixmap != None) {
-            var result = new Drawable;
-            result.display = display;
-            result.xdrawable = pixmap;
+        int xpixmap = display._CreatePixmapFromBuffer(self.xdrawable, buffer);
+        if (xpixmap != None) {
+            var result = new Pixmap;
+            result._set(display, xpixmap);
             return result;
         }
         else
@@ -1086,11 +1085,28 @@ class Drawable
 
 class Pixmap : Drawable
 {
+    function Pixmap(from, int width, int height, int depth[optional], int has_depth[opt_flag])
+    {
+        self.display = from.display;
+        if (! has_depth)
+            depth = display.DefaultDepth(display.DefaultScreen());
+        int xpixmap = getfun("XCreatePixmap")
+                (from.display, from.xdrawable, width, height, depth);
+        self.xdrawable = xpixmap;
+    }
     // Internal only - construct from a X Pixmap
     function _set(display, int xpixmap)
     {
         self.display = display;
-        self.drawable = xpixmap;
+        self.xdrawable = xpixmap;
+    }
+    function Free()
+    {
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None) {
+            getfun("XFreePixmap")(self.display.xdisplay, self.xdrawable);
+            self.xdrawable =: None;
+        }
     }
 }
 

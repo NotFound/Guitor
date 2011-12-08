@@ -151,6 +151,7 @@ class ToolSelector : ChildWindow, BoxedSelector
         self.BoxedSelector(pizarra.display, 2, 2);
         self.pizarra = pizarra;
         self.ChildWindow(pizarra, x, y, self.width, self.height);
+        self.OnDestroy     += evhandler(self, "ondestroy");
         self.OnExpose      += evhandler(self, "onexpose");
         self.OnButtonPress += evhandler(self, "onbuttonpress");
         self.Map();
@@ -180,6 +181,14 @@ static char *test[] = {
 };
 :>>
         );
+    }
+    function ondestroy(event)
+    {
+        var pixmap = self.pixmap;
+        if (pixmap != null) {
+            pixmap.Free();
+            self.pixmap = null;
+        }
     }
     function onexpose(event)
     {
