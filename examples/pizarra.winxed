@@ -402,9 +402,9 @@ class Pizarra : TopLevelWindow
         int ybaux = toolsel.getwidth();
         if (yboard < ybaux)
             yboard = ybaux;
-        var button = new TextButton(self, 4, ybutton, 0, 0,
-                "quit", null);
-        ybaux = button.getwidth();
+        var buttonclose = new TextButton(self, 4, ybutton, 0, 0,
+                "close", null);
+        ybaux = buttonclose.getwidth();
         if (yboard < ybaux)
             yboard = ybaux;
         yboard += 4;
@@ -415,10 +415,10 @@ class Pizarra : TopLevelWindow
 
         colorsel.MoveWindow((yboard - colorsel.getwidth()) / 2 , 2);
         toolsel.MoveWindow((yboard - toolsel.getwidth()) / 2 , ytoolset);
-        button.MoveWindow((yboard - button.getwidth()) / 2, ybutton);
+        buttonclose.MoveWindow((yboard - buttonclose.getwidth()) / 2, ybutton);
 
-        button.OnClick += evhandler(self, "onclickquit");
-        button.Map();
+        buttonclose.OnClick += evhandler(self, "onclickclose");
+        buttonclose.Map();
     }
     function onconfigure(event)
     {
@@ -435,12 +435,11 @@ class Pizarra : TopLevelWindow
     }
     function onclientmessage(event)
     {
-        say('Bye');
-        self.quit();
+        self.close();
     }
-    function onclickquit(event)
+    function onclickclose(event)
     {
-        self.quit();
+        self.close();
     }
 
     function newwindow()
@@ -451,7 +450,7 @@ class Pizarra : TopLevelWindow
                 np.Map();
             } );
     }
-    function quit()
+    function close()
     {
         self.controller.pushaction(method_fun(self, "Destroy"));
     }
@@ -503,7 +502,7 @@ class Board : ChildWindow
 
         var menu = new Menu(self.display, self.display.CreateFont("courier-12"));
         menu.push("new window", method_fun(self.parent, "newwindow"));
-        menu.push("quit",       method_fun(self.parent, "quit"));
+        menu.push("close",      method_fun(self.parent, "close"));
         self.menu = menu;
     }
 
@@ -519,7 +518,7 @@ class Board : ChildWindow
         string key = display.KeysymToString(display.KeycodeToKeysym(code));
         switch (key) {
           case "Escape":
-            self.parent.quit();
+            self.parent.close();
             break;
           case "l":
             self.mode =: HANDLINE;
