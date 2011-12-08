@@ -101,8 +101,13 @@ class EditWindow : TopLevelWindow
 
 function main(args)
 {
+    int size;
+    if (elements(args) > 1)
+        size = args[1];
+    else
+        size = 24;
     var controller = new Controller();
-    var w = new EditWindow(controller, "courier-24");
+    var w = new EditWindow(controller, "sans-" + string(size));
     w.Map();
 
     controller.MainLoop();
