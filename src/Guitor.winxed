@@ -400,8 +400,9 @@ class Display
     }
     function SetSelectionOwner(int selection, window, int time)
     {
+        int xdrawable = window == null ? None : window.xdrawable;
         getfun("XSetSelectionOwner")(self.xdisplay,
-                selection, window.xdrawable, time);
+                selection, xdrawable, time);
     }
     function GetSelectionOwner(int selection)
     {
@@ -1609,6 +1610,7 @@ class ListenerWindow : Window
     var OnLeave;
     var OnFocusIn;
     var OnFocusOut;
+    var OnSelectionClear;
     var OnSelectionRequest;
     var OnSelectionNotify;
     var OnClientMessage;
@@ -1626,6 +1628,7 @@ class ListenerWindow : Window
         self.OnLeave = new EventHandler(self, LeaveWindowMask);
         self.OnFocusIn = new EventHandler(self, FocusChangeMask);
         self.OnFocusOut = new EventHandler(self, FocusChangeMask);
+        self.OnSelectionClear = new EventHandler(self, 0);
         self.OnSelectionRequest = new EventHandler(self, 0);
         self.OnSelectionNotify = new EventHandler(self, 0);
         self.OnClientMessage = new EventHandler(self, 0);
@@ -1677,6 +1680,9 @@ class ListenerWindow : Window
             break;
           case LeaveNotify:
             handler = self.OnLeave;
+            break;
+          case SelectionClear:
+            handler = self.OnSelectionClear;
             break;
           case SelectionRequest:
             handler = self.OnSelectionRequest;
@@ -1798,6 +1804,8 @@ class EditBox : ChildWindow
     var pos;
     var offset;
     var has_focus;
+    var sel_from;
+    var sel_to;
     const int MARGINSUP = 2;
     const int MARGINLEFT = 4;
     function EditBox(parent, int x, int y, int width, int height, font)
@@ -1824,6 +1832,8 @@ class EditBox : ChildWindow
         self.OnFocusIn += function (event) { self.onfocusin(event); };
         self.OnFocusOut += function (event) { self.onfocusout(event); };
         self.OnSelectionNotify += function (event) { self.onselectionnotify(event); };
+        self.OnSelectionRequest += function (event) { self.onselectionrequest(event); };
+        self.OnSelectionClear += function (event) { self.onselectionclear(event); };
     }
     function getValue()
     {
@@ -1857,9 +1867,28 @@ class EditBox : ChildWindow
     function drawall()
     {
         __DEBUG__ && cry(__FUNCTION__);
+        var text = self.text;
+        var font = self.font;
+        var display = self.display;
+        int offset = self.offset;
         self.ClearArea(0, 0, 0, 0, 0);
-        self.DrawImageString(MARGINLEFT - self.offset, MARGINSUP + self.font.getAscent(), self.text);
+        self.DrawImageString(MARGINLEFT - offset, MARGINSUP + font.getAscent(), text);
         self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
+        var sel_from = self.sel_from;
+        if (sel_from != null) {
+            int from = sel_from;
+            int to = self.sel_to;
+            int x1 = font.getTextxOff(display, substr(text, 0, from));
+            int x2 = font.getTextxOff(display, substr(text, 0, to));
+            if (x1 > x2) {
+                int aux = x1;
+                x1 = x2;
+                x2 = aux;
+            }
+            self.SetFunction(GXinvert);
+            self.FillRectangle(MARGINLEFT + x1 - offset, 0, x2 - x1, self.height - 1);
+            self.SetFunction(GXcopy);
+        }
     }
     function onconfigure(event)
     {
@@ -1909,14 +1938,21 @@ class EditBox : ChildWindow
         int l = length(text);
         int pos = self.pos;
         int code = event.keycode();
+        int state = event.state();
         int width = self.width;
         string key = display.KeysymToString(display.KeycodeToKeysym(code));
         int offset = self.offset;
         int x;
+        int dall = false;
+        int ignore = false;
+        self.cursor();
         switch (key) {
           case "Left":
             if (pos > 0) {
-                self.cursor();
+                if (state & ShiftMask) {
+                    self.changeselection(pos, pos - 1, event);
+                    dall = true;
+                }
                 self.pos =: --pos;
                 x = self.getTextWidth(substr(text, 0, pos));
                 if (x < offset) {
@@ -1924,25 +1960,28 @@ class EditBox : ChildWindow
                     if (offset < 0)
                         offset = 0;
                     self.offset =: offset;
-                    self.drawall();
+                    dall = true;
                 }
-                self.cursor();
             }
-            return;
+            break;
           case "Right":
             if (pos < l) {
-                self.cursor();
+                if (state & ShiftMask) {
+                    self.changeselection(pos, pos + 1, event);
+                    dall = true;
+                }
                 self.pos = ++pos;
                 x = self.getTextWidth(substr(text, 0, pos));
                 if (x - offset >= width) {
                     self.offset =: x - width / 4;
-                    self.drawall();
+                    dall = true;
                 }
-                self.cursor();
             }
-            return;
+            break;
           case "End":
             self.cursor();
+            if (state & ShiftMask)
+                self.changeselection(pos, l, event);
             self.pos =: l;
             x = self.getTextWidth(text);
             if (x - offset > width) {
@@ -1951,29 +1990,29 @@ class EditBox : ChildWindow
                     offset = 0;
                 self.offset =: offset;
             }
-            self.drawall();
-            self.cursor();
-            return;
+            dall = true;
+            break;
           case "Home":
             if (pos != 0) {
-                self.cursor();
+                if (state & ShiftMask) {
+                    self.changeselection(pos, 0, event);
+                    dall = true;
+                }
                 self.pos =: 0;
                 if (self.offset > 0) {
                     self.offset =: 0;
-                    self.drawall();
+                    dall = true;
                 }
-                self.cursor();
             }
-            return;
+            break;
           case "Delete":
             if (pos < l) {
                 self.cursor();
                 text = substr(text, 0, pos) + (pos < l - 1 ? substr(text, pos + 1) : "");
                 self.text =: text;
-                self.drawall();
-                self.cursor();
+                dall = true;
             }
-            return;
+            break;
           case "BackSpace":
             if (pos > 0) {
                 self.cursor();
@@ -1988,35 +2027,106 @@ class EditBox : ChildWindow
                         offset = 0;
                     self.offset =: offset;
                 }
-                self.drawall();
-                self.cursor();
+                dall = true;
             }
-            return;
-        }
-        key = self.LookupString(event);
-        if (length(key) < 1)
-            return;
-        switch (key) {
-          case "\n": case "\r": case "\e":
-            return;
-          case "\x{16}":
-            self.paste(event.time());
-            return;
-        }
-        self.cursor();
-        text = substr(text, 0, pos) + key + substr(text, pos);
-        pos += length(key);
-        self.pos =: pos;
-        self.text =: text;
-        x = 0;
-        if (pos > 0)
-            x = self.font.getTextxOff(self.display, substr(text, 0, pos));
+            break;
+          default:
+            key = self.LookupString(event);
+            switch (key) {
+              case "\n": case "\r": case "\e":
+                key = "";
+                break;
+              case "\x{3}":  // Ctrl-C Copy
+                display.SetSelectionOwner(display.InternAtom("CLIPBOARD"),
+                        self, event.time());
+                key = "";
+                break;
+              case "\x{16}": // Ctrl-V Paste
+                self.paste(event.time());
+                key = "";
+                break;
+            }
+            if (length(key) < 1) {
+                ignore = true;
+                break;
+            }
+            text = substr(text, 0, pos) + key + substr(text, pos);
+            pos += length(key);
+            self.pos =: pos;
+            self.text =: text;
+            x = 0;
+            if (pos > 0)
+                x = self.font.getTextxOff(self.display, substr(text, 0, pos));
 
-        if (x - offset >= width)
-            self.offset =: x - width / 4;
-
-        self.drawall();
+            if (x - offset >= width)
+                self.offset =: x - width / 4;
+            dall = true;
+        }
+        if (! ignore) {
+            if (!(state & ShiftMask))
+                if (self.cancelselection())
+                    dall = true;
+        }
+        if (dall)
+            self.drawall();
         self.cursor();
+    }
+    function onselectionclear(event)
+    {
+        var sel_from = self.sel_from;
+        if (sel_from != null) {
+            self.sel_from = null;
+            self.sel_to = null;
+            self.drawall();
+        }
+    }
+    function onselectionrequest(event)
+    {
+        int requestor = event.requestor();
+        int selection = event.selection();
+        int target = event.target();
+        int property = event.property();
+        var display = self.display;
+
+        int typeutf8 = display.InternAtom("UTF8_STRING");
+        // Request for supported types: answer only utf8 text.
+        if (display.GetAtomName(target) == "TARGETS") {
+            display.ChangePropertyInt32(requestor,
+                    property, target, PropModeReplace, typeutf8);
+        }
+        // Request for utf8 text: fine, do it.
+        else if (target == typeutf8) {
+            string text = self.text;
+            string textsel;
+            var sel_from = self.sel_from;
+            if (sel_from == null)
+                textsel = text;
+            else {
+                int from = sel_from;
+                int to = self.sel_to;
+                if (from > to) {
+                    from = to;
+                    to = sel_from;
+                }
+                textsel = substr(text, from, to - from);
+            }
+            display.ChangePropertyString(requestor,
+                    property, target, PropModeReplace, textsel);
+        }
+        else
+            return;
+
+        var notify = new Event(SelectionNotify);
+        // No much support for creating events yet, use the
+        // raw StructView for a now.
+        var data = notify.eventdata;
+        var view = notify.getview();
+        view[data, 4] = requestor;
+        view[data, 5] = selection;
+        view[data, 6] = target;
+        view[data, 7] = property;
+        view[data, 8] = event.time();
+        display.SendEvent(requestor, false, 0, notify);
     }
     function onselectionnotify(event)
     {
@@ -2068,6 +2178,41 @@ class EditBox : ChildWindow
                 clipboard,
                 display.InternAtom("UTF8_STRING"),
                 clipboard, self.xdrawable, time);
+    }
+    function cancelselection()
+    {
+        var sel_from = self.sel_from;
+        if (sel_from == null)
+            return false;
+        self.sel_from = null;
+        self.sel_to = null;
+        var display = self.display;
+        display.SetSelectionOwner(XA_PRIMARY , null, CurrentTime);
+        return true;
+    }
+    function changeselection(int from, int to, event)
+    {
+        var sel_from = self.sel_from;
+        if (sel_from == null) {
+            self.sel_from = from;
+            self.sel_to = to;
+            int time = event == null ? CurrentTime : event.time();
+            self.display.SetSelectionOwner(XA_PRIMARY , self, time);
+        }
+        else {
+            int s_from = sel_from;
+            int s_to = self.sel_to;
+            if (s_from == from)
+                s_from = to;
+            else if (s_to == from)
+                s_to = to;
+            else {
+                s_from = from;
+                s_to = to;
+            }
+            self.sel_from = s_from;
+            self.sel_to = s_to;
+        }
     }
 }
 
