@@ -359,14 +359,16 @@ class Pizarra : TopLevelWindow
     var board;
     function Pizarra(controller)
     {
+        var display = controller.display;
         string title = "pizarra";
         int width = 600;
         int height = 400;
         self.width = width;
         self.height = height;
         self.TopLevelWindow(controller, title, 0, 0, width, height,
-                { "background-color" : controller.display.ParseColor("grey") } );
+                { "background-color" : display.ParseColor("grey") } );
         controller.created(self);
+        self.SetWMProtocols(['WM_DELETE_WINDOW']);
         self.OnDestroy += function (event)
         {
             self.controller.destroyed(self);
@@ -397,7 +399,7 @@ class Pizarra : TopLevelWindow
         toolsel.MoveWindow((yboard - toolsel.getwidth()) / 2 , ytoolset);
         button.MoveWindow((yboard - button.getwidth()) / 2, ybutton);
 
-        button.OnClick += function (event) { self.Destroy(); };
+        button.OnClick += function (event) { self.quit(); };
         button.Map();
     }
     function onConfigure(event)
@@ -416,9 +418,18 @@ class Pizarra : TopLevelWindow
     function onClientMessage(event)
     {
         say('Bye');
-        self.Destroy();
+        self.quit();
     }
 
+    function newwindow()
+    {
+        var np = new Pizarra(self.controller);
+        np.Map();
+    }
+    function quit()
+    {
+        self.Destroy();
+    }
     function setcolor(string spec)
     {
         self.board.setcolor(spec);
@@ -445,6 +456,7 @@ class Board : ChildWindow
     var oldx;
     var oldy;
     var colorspec;
+    var menu;
     function Board(parent, int x, int y, int width, int height)
     {
         self.parent = parent;
@@ -463,6 +475,10 @@ class Board : ChildWindow
         self.OnButtonPress += function (event) { self.onButtonPress(event); };
         self.OnButtonRelease += function (event) { self.onButtonRelease(event); };
         self.OnMotion += function (event) { self.onMotion(event); };
+        var menu = new Menu(self.display, self.display.CreateFont("courier-12"));
+        menu.push("new window", function () { self.parent.newwindow(); } );
+        menu.push("quit", function () { self.parent.quit(); } );
+        self.menu = menu;
     }
 
     function onExpose(event)
@@ -477,7 +493,7 @@ class Board : ChildWindow
         string key = display.KeysymToString(display.KeycodeToKeysym(code));
         switch (key) {
           case "Escape":
-            self.parent.Destroy();
+            self.parent.quit();
             break;
           case "l":
             self.mode =: HANDLINE;
@@ -505,6 +521,10 @@ class Board : ChildWindow
     function onButtonPress(event)
     {
         int button = event.button();
+        if (button == 3) {
+            self.menu.activate_from(self, event);
+            return;
+        }
         self.pressed = button;
         int oldx = event.x();
         int oldy = event.y();
@@ -660,7 +680,6 @@ function main(args)
     int n =  (nargs < 2) ? 1 : nargs - 1;
     for (int i = 0; i < n; ++i) {
         var pizarra = new Pizarra(controller);
-        pizarra.SetWMProtocols(['WM_DELETE_WINDOW']);
         pizarra.Map();
     }
 
