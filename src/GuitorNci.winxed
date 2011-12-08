@@ -601,6 +601,9 @@ function create_function(string funcname)
       case "XFilterEvent":
         sig = "ipi";
         break;
+      case "XSendEvent":
+        sig = "ipiilp";
+        break;
       case "XKeycodeToKeysym":
         sig = "ipii";
         break;
@@ -695,6 +698,9 @@ function create_function(string funcname)
         break;
       case "XGetWindowProperty":
         sig = "ipiilliippppp";
+        break;
+      case "XChangeProperty":
+        sig = "vpiiiiipi";
         break;
       case "XSetSelectionOwner":
         sig = "vpiil";

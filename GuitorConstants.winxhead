@@ -60,6 +60,12 @@ const int
     GrabModeSync  = 0,
     GrabModeAsync = 1;
 
+// Property change modes
+const int
+    PropModeReplace = 0,
+    PropModePrepend = 1,
+    PropModeAppend  = 2;
+
 // WM hints
 const int InputHint = 1;
 

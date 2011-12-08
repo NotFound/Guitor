@@ -282,6 +282,11 @@ class Display
         var fn = getfun("XNextEvent");
         event._get(self.xdisplay, fn);
     }
+    function SendEvent(int xwindow, int propagate, int event_mask, event)
+    {
+        getfun("XSendEvent")(self.xdisplay, xwindow,
+                propagate, event_mask, event.eventdata);
+    }
     function SetWMProtocols(drawable, names)
     {
         __DEBUG__ && cry(__FUNCTION__);
@@ -401,6 +406,24 @@ class Display
     function GetSelectionOwner(int selection)
     {
         return int(getfun("XGetSelectionOwner")(self.xdisplay, selection));
+    }
+    function ChangePropertyInt32(int xwindow,
+            int property, int type, int mode, int value)
+    {
+        var viewint = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var pvalue = viewint.alloc();
+        viewint[pvalue, 0] = value;
+        var fun = getfun("XChangeProperty");
+        fun(self.xdisplay, xwindow, property, type, 32, mode,
+                pvalue, 1);
+    }
+    function ChangePropertyString(int xwindow,
+            int property, int type, int mode, string value)
+    {
+        var pvalue = str_to_achar_utf8(value);
+        var fun = getfun("XChangeProperty");
+        fun(self.xdisplay, xwindow, property, type, 8, mode,
+                pvalue, elements(pvalue));
     }
 }
 
@@ -627,11 +650,12 @@ class Event
     var evbutton;
     var evstate;
     var time;
-    function Event()
+    function Event(int type[optional])
     {
         self.eventdata = geteventpad().alloc();
         self.anyview = getanyview();
-        self.evtype = 0;
+        self.evtype = type;
+        self.anyview[self.eventdata, 0] = type;
         self.evx = 0;
         self.evy = 0;
         self.evx_root = 0;
@@ -641,6 +665,44 @@ class Event
         self.evkeycode = -1;
         self.evbutton = 0;
         self.evstate = 0;
+    }
+    function getview()
+    {
+        var view = self.anyview;
+        int type = view[self.eventdata, 0];
+        switch (type) {
+          case ConfigureNotify:
+            view   = getstructureview();
+            break;
+          case Expose:
+            view   = getexposeview();
+            break;
+          case KeyPress:
+            view    = getkeyview();
+            break;
+          case ButtonPress:
+          case ButtonRelease:
+            view   = getbuttonview();
+            break;
+          case MotionNotify:
+            view   = getmotionview();
+            break;
+          case FocusIn:
+          case FocusOut:
+            view   = getfocusview();
+            break;
+          case EnterNotify:
+          case LeaveNotify:
+            view   = getcrossingview();
+            break;
+          case SelectionRequest:
+            view   = getselectionrequestview();
+            break;
+          case SelectionNotify:
+            view   = getselectionview();
+            break;
+        }
+        return view;
     }
     function _get(xdisplay, fn)
     {
