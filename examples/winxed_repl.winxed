@@ -8,6 +8,8 @@ $load "Guitor.pbc";
 
 using namespace Guitor;
 
+$include_const "except_severity.pasm";
+
 //**************************************************************
 
 // Compile the string passed embedded in a local function of a function
@@ -39,6 +41,11 @@ function parse_line(compiler, storage, string line)
     var code = pircomp.compile(pir);
 
     var fun = code.all_subs()[0];
+    return fun;
+}
+
+function execute_line(storage, fun)
+{
     var result = fun(storage);
     return result;
 }
@@ -115,6 +122,7 @@ class WinxedRepl : TopLevelWindow
     var histpos;
     var storage;
     var compiler;
+    var exit_code;
     function WinxedRepl(controller, fontname)
     {
         var display = controller.display;
@@ -210,8 +218,24 @@ class WinxedRepl : TopLevelWindow
         out.open("REPLout", "w");
         interp.stdout_handle(out);
         interp.stderr_handle(out);
+        var fun;
         try {
-            var result = parse_line(self.compiler, self.storage, str);
+            fun = parse_line(self.compiler, self.storage, str);
+        }
+        catch (e) {
+            interp.stdout_handle(savestdout);
+            interp.stderr_handle(savestderr);
+            panel.add("Error while compiling:");
+            out.close();
+            out.open("", "r");
+            panel.add(out.readall());
+            panel.add(e["message"]);
+            panel.ClearArea(0, 0, 0, 0, 0);
+            panel.drawall();
+            return;
+        }
+        try {
+            var result = execute_line(self.storage, fun);
             interp.stdout_handle(savestdout);
             interp.stderr_handle(savestderr);
             out.close();
@@ -223,6 +247,11 @@ class WinxedRepl : TopLevelWindow
         catch (e) {
             interp.stdout_handle(savestdout);
             interp.stderr_handle(savestderr);
+            if (e["severity"] == EXCEPT_EXIT) {
+                self.exit_code = e["exit_code"];
+                self.quit();
+                return;
+            }
             panel.add(e["message"]);
         }
         panel.ClearArea(0, 0, 0, 0, 0);
@@ -286,7 +315,12 @@ function main()
     var repl = new WinxedRepl(controller, "Courier-12");
     repl.Map();
     controller.MainLoop();
-    controller.Close();    
+    var exit_code = repl.exit_code;
+    controller.Close();
+    repl = null;
+    controller = null;
+    if (exit_code != null)
+        exit(exit_code);
 }
 
 // End
