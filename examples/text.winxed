@@ -19,6 +19,7 @@ class TextWindow : TopLevelWindow
     var font;
     var chunks;
     var start;
+    var menu;
     function TextWindow(controller, string text, string fontname)
     {
         if (fontname == null)
@@ -35,16 +36,22 @@ class TextWindow : TopLevelWindow
         self.font = font;
         self.start = 0;
 
-        self.OnConfigure += function (event) { self.onConfigure(event); };
-        self.OnExpose += function (event) { self.onExpose(event); };
-        self.OnKeyPress += function (event) { self.onKeyPress(event); };
-        self.OnClientMessage += function (event) { self.onClientMessage(event); };
+        self.OnConfigure += function (event) { self.onconfigure(event); };
+        self.OnExpose += function (event) { self.onexpose(event); };
+        self.OnKeyPress += function (event) { self.onkeypress(event); };
+        self.OnButtonPress += function (event) { self.onbuttonpress(event); };
+        self.OnClientMessage += function (event) { self.onclientmessage(event); };
+        self.OnSelectionRequest += function (event) { self.onselectionrequest(event); };
         self.OnDestroy += function (event)
         {
             var controller = self.controller;
             controller.unregister(self);
             controller.Quit();
         };
+        var menu = new Menu(display, display.CreateFont("sans-14"));
+        menu.push("close", function () { self.controller.pushaction(function() { self.Destroy(); } ); } );
+        menu.push("copy all", function () { self.copyall(); } );
+        self.menu = menu;
     }
     function drawall()
     {
@@ -65,8 +72,15 @@ class TextWindow : TopLevelWindow
         y += hfont;
         self.DrawImageString(0, y, substr(self.text, pos));
     }
+    function copyall()
+    {
+        // Copy all text to clipboard
+        var display = self.display;
+        int clipboard = display.InternAtom("CLIPBOARD");
+        display.SetSelectionOwner(clipboard, self, CurrentTime);
+    }
 
-    function onConfigure(event)
+    function onconfigure(event)
     {
         int width = event.width();
         self.width =: width;
@@ -110,11 +124,11 @@ class TextWindow : TopLevelWindow
         } while (pnextline > 0);
         self.chunks = chunks;
     }
-    function onExpose(event)
+    function onexpose(event)
     {
         self.drawall();
     }
-    function onKeyPress(event)
+    function onkeypress(event)
     {
         var display = self.display;
         string key = event.keyname();
@@ -136,11 +150,49 @@ class TextWindow : TopLevelWindow
             break;
         }
     }
-    function onClientMessage(event)
+    function onbuttonpress(event)
+    {
+        self.menu.activate_from(self, event);
+    }
+    function onclientmessage(event)
     {
         self.text = null;
         self.chunks = null;
         self.Destroy();
+    }
+    function onselectionrequest(event)
+    {
+        int requestor = event.requestor();
+        int selection = event.selection();
+        int target = event.target();
+        int property = event.property();
+        var display = self.display;
+
+        int typeutf8 = display.InternAtom("UTF8_STRING");
+        // Request for supported types: answer only utf8 text.
+        if (display.GetAtomName(target) == "TARGETS") {
+            display.ChangePropertyInt32(requestor,
+                    property, target, PropModeReplace, typeutf8);
+        }
+        // Request for utf8 text: fine, do it.
+        else if (target == typeutf8) {
+            display.ChangePropertyString(requestor,
+                    property, target, PropModeReplace, self.text);
+        }
+        else
+            return;
+
+        var notify = new Event(SelectionNotify);
+        // No much support for creating events yet, use the
+        // raw StructView for a now.
+        var data = notify.eventdata;
+        var view = notify.getview();
+        view[data, 4] = requestor;
+        view[data, 5] = selection;
+        view[data, 6] = target;
+        view[data, 7] = property;
+        view[data, 8] = event.time();
+        display.SendEvent(requestor, false, 0, notify);
     }
 }
 
