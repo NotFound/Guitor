@@ -18,6 +18,15 @@ function evhandler(object, string methodname)
     return function (event) { object.*method(event); };
 }
 
+function method_fun(obj, string methodname)
+{
+    var method = find_method(obj, methodname);
+    return function (args[slurpy])
+    {
+        return obj.*method(args:[flat]);
+    };
+}
+
 //**********************************************************************
 
 // Size in mm
@@ -89,7 +98,7 @@ class ColorSelector : ChildWindow, BoxedSelector
         ];
         self.colors = colors;
         self.ChildWindow(pizarra, x, y, self.width, self.height);
-        self.OnExpose += evhandler(self, "onExpose");
+        self.OnExpose      += evhandler(self, "onExpose");
         self.OnButtonPress += evhandler(self, "onButtonPress");
         self.Map();
     }
@@ -142,7 +151,7 @@ class ToolSelector : ChildWindow, BoxedSelector
         self.BoxedSelector(pizarra.display, 2, 2);
         self.pizarra = pizarra;
         self.ChildWindow(pizarra, x, y, self.width, self.height);
-        self.OnExpose += evhandler(self, "onExpose");
+        self.OnExpose      += evhandler(self, "onExpose");
         self.OnButtonPress += evhandler(self, "onButtonPress");
         self.Map();
         // Ugly icon for hand drawn lines
@@ -373,8 +382,8 @@ class Pizarra : TopLevelWindow
         {
             self.controller.destroyed(self);
         };
-        self.OnConfigure += function (event) { self.onConfigure(event); };
-        self.OnClientMessage += function (event) { self.onClientMessage(event); };
+        self.OnConfigure     += evhandler(self, "onConfigure");
+        self.OnClientMessage += evhandler(self, "onClientMessage");
 
         var colorsel = new ColorSelector(self, 4, 2);
         int yboard = colorsel.getwidth();
@@ -399,7 +408,7 @@ class Pizarra : TopLevelWindow
         toolsel.MoveWindow((yboard - toolsel.getwidth()) / 2 , ytoolset);
         button.MoveWindow((yboard - button.getwidth()) / 2, ybutton);
 
-        button.OnClick += function (event) { self.quit(); };
+        button.OnClick += evhandler(self, "quit");
         button.Map();
     }
     function onConfigure(event)
@@ -431,7 +440,7 @@ class Pizarra : TopLevelWindow
     }
     function quit()
     {
-        self.controller.pushaction(function() { self.Destroy(); } );
+        self.controller.pushaction(method_fun(self, "Destroy"));
     }
     function setcolor(string spec)
     {
@@ -473,14 +482,15 @@ class Board : ChildWindow
         self.oldy = 0;
         self.colorspec = "black";
 
-        self.OnExpose += function (event) { self.onExpose(event); };
-        self.OnKeyPress += function (event) { self.onKeyPress(event); };
-        self.OnButtonPress += function (event) { self.onButtonPress(event); };
-        self.OnButtonRelease += function (event) { self.onButtonRelease(event); };
-        self.OnMotion += function (event) { self.onMotion(event); };
+        self.OnExpose        += evhandler(self, "onExpose");
+        self.OnKeyPress      += evhandler(self, "onKeyPress");
+        self.OnButtonPress   += evhandler(self, "onButtonPress");
+        self.OnButtonRelease += evhandler(self, "onButtonRelease");
+        self.OnMotion        += evhandler(self, "onMotion");
+
         var menu = new Menu(self.display, self.display.CreateFont("courier-12"));
-        menu.push("new window", function () { self.parent.newwindow(); } );
-        menu.push("quit", function () { self.parent.quit(); } );
+        menu.push("new window", method_fun(self.parent, "newwindow"));
+        menu.push("quit",       method_fun(self.parent, "quit"));
         self.menu = menu;
     }
 
