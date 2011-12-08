@@ -98,11 +98,11 @@ class ColorSelector : ChildWindow, BoxedSelector
         ];
         self.colors = colors;
         self.ChildWindow(pizarra, x, y, self.width, self.height);
-        self.OnExpose      += evhandler(self, "onExpose");
-        self.OnButtonPress += evhandler(self, "onButtonPress");
+        self.OnExpose      += evhandler(self, "onexpose");
+        self.OnButtonPress += evhandler(self, "onbuttonpress");
         self.Map();
     }
-    function onExpose(event)
+    function onexpose(event)
     {
         int width = self.width;
         int height = self.height;
@@ -124,7 +124,7 @@ class ColorSelector : ChildWindow, BoxedSelector
                         boxwidth - 2, boxheight - 2);
             }
     }
-    function onButtonPress(event)
+    function onbuttonpress(event)
     {
         int boxwidth = self.boxwidth;
         int boxheight = self.boxheight;
@@ -151,8 +151,8 @@ class ToolSelector : ChildWindow, BoxedSelector
         self.BoxedSelector(pizarra.display, 2, 2);
         self.pizarra = pizarra;
         self.ChildWindow(pizarra, x, y, self.width, self.height);
-        self.OnExpose      += evhandler(self, "onExpose");
-        self.OnButtonPress += evhandler(self, "onButtonPress");
+        self.OnExpose      += evhandler(self, "onexpose");
+        self.OnButtonPress += evhandler(self, "onbuttonpress");
         self.Map();
         // Ugly icon for hand drawn lines
         self.pixmap = self.CreatePixmapFromBuffer(<<:
@@ -181,7 +181,7 @@ static char *test[] = {
 :>>
         );
     }
-    function onExpose(event)
+    function onexpose(event)
     {
         int width = self.width;
         int height = self.height;
@@ -210,7 +210,7 @@ static char *test[] = {
                 }
             }
     }
-    function onButtonPress(event)
+    function onbuttonpress(event)
     {
         int boxwidth = self.boxwidth;
         int boxheight = self.boxheight;
@@ -382,8 +382,8 @@ class Pizarra : TopLevelWindow
         {
             self.controller.destroyed(self);
         };
-        self.OnConfigure     += evhandler(self, "onConfigure");
-        self.OnClientMessage += evhandler(self, "onClientMessage");
+        self.OnConfigure     += evhandler(self, "onconfigure");
+        self.OnClientMessage += evhandler(self, "onclientmessage");
 
         var colorsel = new ColorSelector(self, 4, 2);
         int yboard = colorsel.getwidth();
@@ -411,7 +411,7 @@ class Pizarra : TopLevelWindow
         button.OnClick += evhandler(self, "onclickquit");
         button.Map();
     }
-    function onConfigure(event)
+    function onconfigure(event)
     {
         int nwidth = event.width();
         int nheight = event.height();
@@ -424,7 +424,7 @@ class Pizarra : TopLevelWindow
             self.height = nheight;
         }
     }
-    function onClientMessage(event)
+    function onclientmessage(event)
     {
         say('Bye');
         self.quit();
@@ -486,11 +486,11 @@ class Board : ChildWindow
         self.oldy = 0;
         self.colorspec = "black";
 
-        self.OnExpose        += evhandler(self, "onExpose");
-        self.OnKeyPress      += evhandler(self, "onKeyPress");
-        self.OnButtonPress   += evhandler(self, "onButtonPress");
-        self.OnButtonRelease += evhandler(self, "onButtonRelease");
-        self.OnMotion        += evhandler(self, "onMotion");
+        self.OnExpose        += evhandler(self, "onexpose");
+        self.OnKeyPress      += evhandler(self, "onkeypress");
+        self.OnButtonPress   += evhandler(self, "onbuttonpress");
+        self.OnButtonRelease += evhandler(self, "onbuttonrelease");
+        self.OnMotion        += evhandler(self, "onmotion");
 
         var menu = new Menu(self.display, self.display.CreateFont("courier-12"));
         menu.push("new window", method_fun(self.parent, "newwindow"));
@@ -498,12 +498,12 @@ class Board : ChildWindow
         self.menu = menu;
     }
 
-    function onExpose(event)
+    function onexpose(event)
     {
         for (var l in self.listline)
             l.draw(self);
     }
-    function onKeyPress(event)
+    function onkeypress(event)
     {
         int code = event.keycode();
         var display = self.display;
@@ -535,7 +535,7 @@ class Board : ChildWindow
             say('Key name: ', self.display.KeysymToString(sym));
         }
     }
-    function onButtonPress(event)
+    function onbuttonpress(event)
     {
         int button = event.button();
         if (button == 3) {
@@ -559,7 +559,7 @@ class Board : ChildWindow
             break;
         }
     }
-    function onButtonRelease(event)
+    function onbuttonrelease(event)
     {
         if (! self.pressed)
             return;
@@ -594,7 +594,7 @@ class Board : ChildWindow
             break;
         }
     }
-    function onMotion(event)
+    function onmotion(event)
     {
         if (self.pressed) {
             int x = event.x();
