@@ -94,6 +94,10 @@ class Display
     {
         getfun("XFlush")(self.xdisplay);
     }
+    function Sync(int discard)
+    {
+        getfun("XSync")(self.xdisplay, discard);
+    }
     function _DefaultScreen()
     {
         int scrnum = getfun("XDefaultScreen")(self.xdisplay);
@@ -1343,11 +1347,12 @@ class Controller
     }
     function handleEvent(event)
     {
-        using namespace Events;
-        int w = event.window();
-        var window = self.regwindow[w];
-        if (window != null)
-            window.handle(event);
+        if (! getfun("XFilterEvent")(event.eventdata, None)) {
+            int w = event.window();
+            var window = self.regwindow[w];
+            if (window != null)
+                window.handle(event);
+        }
     }
     function MainLoop()
     {
@@ -1356,14 +1361,22 @@ class Controller
         var event = new Event();
         var actionqueue = self.actionqueue;
         do {
-            if (elements(actionqueue) && display.Pending() == 0) {
-                var action = pop_var(actionqueue);
-                action();
+            if (elements(actionqueue)) {
+                display.Sync(false);
+                if (display.Pending() > 0) {
+                    do {
+                        display.NextEvent(event);
+                        self.handleEvent(event);
+                    } while (display.Pending() > 0);
+                }
+                else {
+                    var action = shift_var(actionqueue);
+                    action();
+                }
             }
             else {
                 display.NextEvent(event);
-                if (! getfun("XFilterEvent")(event.eventdata, None))
-                    self.handleEvent(event);
+                self.handleEvent(event);
             }
         } while (self.running);
     }

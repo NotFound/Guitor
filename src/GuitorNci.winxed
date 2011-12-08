@@ -505,6 +505,9 @@ function create_function(string funcname)
       case "XFlush":
         sig = "vp";
         break;
+      case "XSync":
+        sig = "vpi";
+        break;
       case "XDisplayName":
       case "XOpenDisplay":
         sig = "pp";
