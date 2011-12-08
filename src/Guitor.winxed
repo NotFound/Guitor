@@ -1069,16 +1069,28 @@ class Drawable
         var pixmap;
         var shape;
         if (xpixmap != None) {
-            pixmap = new Drawable;
-            pixmap.display = display;
-            pixmap.xdrawable = xpixmap;
+            pixmap = new Pixmap;
+            pixmap._set(display, xpixmap);
         }
         if (xshape != None) {
-            shape = new Drawable;
-            shape.display = display;
-            shape.xdrawable = xshape;
+            shape = new Pixmap;
+            shape._set(display, xshape);
         }
         return pixmap, shape;
+    }
+}
+
+//**************************************************************
+//                      Pixmap
+//**************************************************************
+
+class Pixmap : Drawable
+{
+    // Internal only - construct from a X Pixmap
+    function _set(display, int xpixmap)
+    {
+        self.display = display;
+        self.drawable = xpixmap;
     }
 }
 
