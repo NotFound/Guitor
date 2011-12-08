@@ -408,7 +408,7 @@ class Pizarra : TopLevelWindow
         toolsel.MoveWindow((yboard - toolsel.getwidth()) / 2 , ytoolset);
         button.MoveWindow((yboard - button.getwidth()) / 2, ybutton);
 
-        button.OnClick += evhandler(self, "quit");
+        button.OnClick += evhandler(self, "onclickquit");
         button.Map();
     }
     function onConfigure(event)
@@ -427,6 +427,10 @@ class Pizarra : TopLevelWindow
     function onClientMessage(event)
     {
         say('Bye');
+        self.quit();
+    }
+    function onclickquit(event)
+    {
         self.quit();
     }
 
