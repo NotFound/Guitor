@@ -423,12 +423,15 @@ class Pizarra : TopLevelWindow
 
     function newwindow()
     {
-        var np = new Pizarra(self.controller);
-        np.Map();
+        self.controller.pushaction(function ()
+            {
+                var np = new Pizarra(self.controller);
+                np.Map();
+            } );
     }
     function quit()
     {
-        self.Destroy();
+        self.controller.pushaction(function() { self.Destroy(); } );
     }
     function setcolor(string spec)
     {

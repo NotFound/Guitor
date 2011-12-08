@@ -562,6 +562,9 @@ function create_function(string funcname)
       case "XSetTransientForHint":
         sig = "vpii";
         break;
+      case "XPending":
+        sig = "ip";
+        break;
       case "XNextEvent":
         sig = "vpp";
         break;

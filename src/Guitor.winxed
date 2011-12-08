@@ -267,6 +267,10 @@ class Display
         return fn(self.xdisplay, parent.xdrawable, x, y, width, height,
                 border_width, border_color, background);
     }
+    function Pending()
+    {
+        return int(getfun("XPending")(self.xdisplay));
+    }
     function NextEvent(var event)
     {
         using namespace Events;
@@ -1298,6 +1302,7 @@ class Controller
     var display;
     var regwindow;
     var running;
+    var actionqueue;
     function Controller()
     {
         self.Controller(new Display());
@@ -1308,6 +1313,7 @@ class Controller
         var regwindow = {};
         regwindow.set_key_type(Hash_key_type_int);
         self.regwindow = regwindow;
+        self.actionqueue = [];
     }
     function Close()
     {
@@ -1348,15 +1354,26 @@ class Controller
         self.running = true;
         var display = self.display;
         var event = new Event();
+        var actionqueue = self.actionqueue;
         do {
-            display.NextEvent(event);
-            if (! getfun("XFilterEvent")(event.eventdata, None))
-                self.handleEvent(event);
+            if (elements(actionqueue) && display.Pending() == 0) {
+                var action = pop_var(actionqueue);
+                action();
+            }
+            else {
+                display.NextEvent(event);
+                if (! getfun("XFilterEvent")(event.eventdata, None))
+                    self.handleEvent(event);
+            }
         } while (self.running);
     }
     function Quit()
     {
         self.running = false;
+    }
+    function pushaction(action)
+    {
+        push(self.actionqueue, action);
     }
 }
 
