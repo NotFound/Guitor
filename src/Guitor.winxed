@@ -1919,7 +1919,7 @@ class EditBox : ChildWindow
 //**************************************************************
 
 // A barely functional context menu to be used in examples and tests.
-// No keyboard interface, only mouse. No highlight.
+// No keyboard interface, only mouse.
 
 class MenuItem
 {
@@ -1947,21 +1947,28 @@ class MenuWindow : ChildWindow
     var current;
     function MenuWindow(parent, int x, int y, menu)
     {
+        var display = parent.display;
         self.menu = menu;
         var items = menu.items;
         int nitems = elements(items);
         int hitem = menu.font.getHeight();
         int hbase = menu.font.getAscent() + 1;
         int height = hitem * nitems + 2;
-        int width = menu.font.getTextWidth(menu.display, menu.items[0].name);
+        int width = 0;
+        for (var item in menu.items) {
+            int iwidth = menu.font.getTextWidth(display, item.name);
+            if (iwidth > width)
+                width = iwidth;
+        }
+        width = width + 12;
         self.height = height;
         self.width = width;
         self.hitem = hitem;
         self.hbase = hbase;
         self.enter = false;
         self.inside = false;
-        var bgcolor = parent.display.ParseColor("grey");
-        var fgcolor = parent.display.ParseColor("black");
+        var bgcolor = display.ParseColor("grey");
+        var fgcolor = display.ParseColor("black");
         self.fgcolor = fgcolor;
         self.bgcolor = bgcolor;
         self.current = CURRENT_NONE;
@@ -1986,7 +1993,7 @@ class MenuWindow : ChildWindow
         self.FillRectangle(1, 1 + nitem * hitem, width - 2, hitem);
         self.SetForeground(fgcolor);
         self.SetBackground(bgcolor);
-        self.DrawString(1, hbase + nitem * hitem, items[nitem].name);
+        self.DrawString(5, hbase + nitem * hitem, items[nitem].name);
     }
     function changecurrent(int newcurrent)
     {
