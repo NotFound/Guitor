@@ -498,35 +498,34 @@ class XftFont
     {
         if (length(str) == 0)
             return;
-        var xdrawable = drawable.xdrawable;
-        if (xdrawable == None)
+        var xftdraw = drawable._getXftDraw();
+        if (xftdraw == null)
             return;
+        var gc = drawable.getgc();
+        var xcolor;
+        var color = gc.getForeground();
+        if (color != null)
+            xcolor = color.xftcolor;
+        if (xcolor == null) {
+            color = display.ParseColor("black");
+            xcolor = color.xftcolor;
+        }
 
-        var visual = display.DefaultVisual();
-        var colormap = display.DefaultColormap();
-        var xdisplay = display.xdisplay;
-        var color = getxftcolorview().alloc();
-        getxftfun("XftColorAllocName")(xdisplay, visual, colormap,
-                str_to_cstring("black"), color);
         var pstr = str_to_achar_utf8(str);
         int len = elements(pstr);
-        var xftdraw = getxftfun("XftDrawCreate")(xdisplay, xdrawable,
-                visual, colormap);
-        getxftfun("XftDrawStringUtf8")(xftdraw, color, self.xftfont,
+        getxftfun("XftDrawStringUtf8")(xftdraw, xcolor, self.xftfont,
             x, y, pstr, len);
-        getxftfun("XftDrawDestroy")(xftdraw);
     }
     function DrawImageString(display, drawable, int x, int y, string str)
     {
         if (length(str) == 0)
             return;
-        var xdrawable = drawable.xdrawable;
-        if (xdrawable == None)
+        var xftdraw = drawable._getXftDraw();
+        if (xftdraw == null)
             return;
         var pstr = str_to_achar_utf8(str);
         int len = elements(pstr);
 
-        var xdisplay = display.xdisplay;
         var xftfont = self.xftfont;
         var fview = getxftfontview();
         int ascent = fview[xftfont, 0];
@@ -539,11 +538,6 @@ class XftFont
         int width = tview[glyphinfo, 0];
         int height = tview[glyphinfo, 1];
 
-        var visual = display.DefaultVisual();
-        var colormap = display.DefaultColormap();
-        var xftdraw = getxftfun("XftDrawCreate")(xdisplay, xdrawable,
-                visual, colormap);
-
         var gc = drawable.getgc();
         var xcolor;
         var color = gc.getForeground();
@@ -553,7 +547,6 @@ class XftFont
             color = display.ParseColor("black");
             xcolor = color.xftcolor;
         }
-
         var xbgcolor;
         var bgcolor = gc.getBackground();
         if (bgcolor != null)
@@ -566,7 +559,6 @@ class XftFont
         getxftfun("XftDrawRect")(xftdraw, xbgcolor, left, top, width, height);
         getxftfun("XftDrawStringUtf8")(xftdraw, xcolor, xftfont,
             x, y, pstr, len);
-        getxftfun("XftDrawDestroy")(xftdraw);
     }
     function getAscent()
     {
@@ -1112,8 +1104,18 @@ class Drawable
 {
     var display;
     var xdrawable;
+    var xftdraw;
     var gc;
     var font;
+    function finalizedrawable()
+    {
+        var xftdraw = self.xftdraw;
+        if (xftdraw != null) {
+            getxftfun("XftDrawDestroy")(xftdraw);
+            self.xftdraw = null;
+        }
+        self.xdrawable = None;
+    }
     function getgc()
     {
         var gc = self.gc;
@@ -1230,6 +1232,21 @@ class Drawable
         }
         return pixmap, shape;
     }
+    function _getXftDraw()
+    {
+        var xdrawable = self.xdrawable;
+        if (xdrawable == null)
+            return null;
+        var display = self.display;
+        var xftdraw = self.xftdraw;
+        if (xftdraw == null) {
+            var visual = display.DefaultVisual();
+            var colormap = display.DefaultColormap();
+            xftdraw = getxftfun("XftDrawCreate")(display.xdisplay,
+                    xdrawable, visual, colormap);
+        }
+        return xftdraw;
+    }
 }
 
 //**************************************************************
@@ -1257,8 +1274,8 @@ class Pixmap : Drawable
     {
         int xdrawable = self.xdrawable;
         if (xdrawable != None) {
-            getfun("XFreePixmap")(self.display.xdisplay, self.xdrawable);
-            self.xdrawable =: None;
+            self.finalizedrawable();
+            getfun("XFreePixmap")(self.display.xdisplay, xdrawable);
         }
     }
 }
@@ -1273,8 +1290,11 @@ class Window : Drawable
     function Destroy()
     {
         __DEBUG__ && cry(__FUNCTION__);
-        getfun("XDestroyWindow")(self.display.xdisplay, self.xdrawable);
-        self.xdrawable = None;
+        var xdrawable = self.xdrawable;
+        if (xdrawable != null) {
+            self.finalizedrawable();
+            getfun("XDestroyWindow")(self.display.xdisplay, xdrawable);
+        }
     }
     function CreateIC()
     {
