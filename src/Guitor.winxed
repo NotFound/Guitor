@@ -848,9 +848,18 @@ class Event
     {
         int detail = 0;
         int type = self.evtype;
-        if (type == EnterNotify || type == LeaveNotify) {
-            var view   = getcrossingview();
-            detail  = view[self.eventdata, 13];
+        var view;
+        switch (type) {
+          case EnterNotify:
+          case LeaveNotify:
+            view = getcrossingview();
+            detail = view[self.eventdata, 13];
+            break;
+          case FocusIn:
+          case FocusOut:
+            view = getfocusview();
+            detail = view[self.eventdata, 6];
+            break;
         }
         return detail;
     }
