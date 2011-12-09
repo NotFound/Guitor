@@ -58,19 +58,23 @@ class TextWindow : TopLevelWindow
         string text = self.text;
         int pos = 0;
         int hfont = self.font.getHeight();
+        int height = self.height;
         int y = 0;
         int start = self.start;
         int line = 0;
         for (int p in self.chunks) {
             if (line >= start) {
                 y += hfont;
+                if (y > height)
+                    break;
                 self.DrawImageString(0, y, substr(self.text, pos, p - pos - 1));
             }
             pos = p;
             ++line;
         }
         y += hfont;
-        self.DrawImageString(0, y, substr(self.text, pos));
+        if (y <= height)
+            self.DrawImageString(0, y, substr(self.text, pos));
     }
     function copyall()
     {
