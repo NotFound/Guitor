@@ -509,6 +509,10 @@ class FontSet
     {
         return int(getfun("XmbTextEscapement")(self.xfont, str_to_cstring(text), bytelength(text)));
     }
+    function getTextxOff(display, string text)
+    {
+        return self.getTextWidth(display, text);
+    }
 }
 
 class XftFont
@@ -1241,6 +1245,13 @@ class Drawable
             return 0;
         return font.getTextWidth(self.display, text);
     }
+    function getTextxOff(string text)
+    {
+        var font = self.font;
+        if (font == null)
+            return 0;
+        return font.getTextxOff(self.display, text);
+    }
     function SetClipMask(pixmap)
     {
         self.getgc().SetClipMask(pixmap);
@@ -1935,19 +1946,17 @@ class EditBox : ChildWindow
         int rp = length(text);
         if (rp == 0)
             return 0;
-        var display = self.display;
-        var font = self.font;
-        if (x > font.getTextxOff(display, text))
+        if (x > self.getTextxOff(text))
             return rp;
         int lp = 0;
         int mp;
         while ((mp = (lp + rp) / 2) != lp) {
-            if (x < font.getTextxOff(display, substr(text, 0, mp)))
+            if (x < self.getTextxOff(substr(text, 0, mp)))
                 rp = mp;
             else
                 lp = mp;
         }
-        return x < ((font.getTextxOff(display, substr(text, 0, mp)) + font.getTextxOff(display, substr(text, 0, mp + 1))) / 2) ? mp : mp + 1;
+        return x < ((self.getTextxOff(substr(text, 0, mp)) + self.getTextxOff(substr(text, 0, mp + 1))) / 2) ? mp : mp + 1;
     }
     function cursor()
     {
@@ -1955,8 +1964,7 @@ class EditBox : ChildWindow
         string text = self.text;
         int pos = self.pos;
         int height = self.height;
-        var font = self.font;
-        int x = font.getTextxOff(self.display, substr(text, 0, pos)) -
+        int x = self.getTextxOff(substr(text, 0, pos)) -
             self.offset + MARGINLEFT;
         self.SetFunction(GXinvert);
         self.DrawLine(x, MARGINSUP + 1, x, self.baseline + 1);
@@ -1968,7 +1976,7 @@ class EditBox : ChildWindow
         int offset = self.offset;
         int old = offset;
         int width = self.width;
-        int x = self.font.getTextxOff(self.display, substr(self.text, 0, pos)) + MARGINLEFT;
+        int x = self.getTextxOff(substr(self.text, 0, pos)) + MARGINLEFT;
         if (x < offset) {
             offset = x - width / 3;
             if (offset < 0)
@@ -1988,7 +1996,6 @@ class EditBox : ChildWindow
         __DEBUG__ && cry(__FUNCTION__);
         var text = self.text;
         var font = self.font;
-        var display = self.display;
         int offset = self.offset;
         self.ClearArea(0, 0, 0, 0, 0);
         self.DrawImageString(MARGINLEFT - offset, MARGINSUP + font.getAscent(), text);
@@ -1997,8 +2004,8 @@ class EditBox : ChildWindow
         if (sel_from != null) {
             int from = sel_from;
             int to = self.sel_to;
-            int x1 = font.getTextxOff(display, substr(text, 0, from));
-            int x2 = font.getTextxOff(display, substr(text, 0, to));
+            int x1 = self.getTextxOff(substr(text, 0, from));
+            int x2 = self.getTextxOff(substr(text, 0, to));
             if (x1 > x2) {
                 int aux = x1;
                 x1 = x2;
@@ -2106,7 +2113,6 @@ class EditBox : ChildWindow
     {
         __DEBUG__ && cry(__FUNCTION__);
         var display = self.display;
-        var font = self.font;
         string text = self.text;
         int l = length(text);
         int pos = self.pos;
