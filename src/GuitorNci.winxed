@@ -527,6 +527,8 @@ function create_function(string funcname)
         sig = "vp";
         break;
       case "XSync":
+      case "XFreePixmap":
+      case "XRaiseWindow":
         sig = "vpi";
         break;
       case "XDisplayName":
@@ -537,6 +539,7 @@ function create_function(string funcname)
       case "XDefaultScreen":
       case "XStringToKeysym":
       case "XSetLocaleModifiers":
+      case "XPending":
         sig = "ip";
         break;
       case "setlocale":
@@ -548,8 +551,6 @@ function create_function(string funcname)
         sig = "ppi";
         break;
       case "XRootWindow":
-        sig = "ipi";
-        break;
       case "XDefaultDepth":
       case "XBlackPixel":
       case "XWhitePixel":
@@ -557,6 +558,10 @@ function create_function(string funcname)
       case "XDisplayWidthMM":
       case "XDisplayHeight":
       case "XDisplayHeightMM":
+      case "XMapWindow":
+      case "XUnmapWindow":
+      case "XDestroyWindow":
+      case "XFilterEvent":
       case "XKeysymToKeycode":
         sig = "ipi";
         break;
@@ -565,41 +570,23 @@ function create_function(string funcname)
         break;
       case "XSetForeground":
       case "XSetBackground":
+      case "XSetFunction":
+      case "XSetSubwindowMode":
+      case "XSetClipMask":
         sig = "vppi";
         break;
       case "XCreatePixmap":
         sig = "ipiiii";
         break;
-      case "XFreePixmap":
-        sig = "vpi";
-        break;
-      case "XMapWindow":
-      case "XUnmapWindow":
-        sig = "ipi";
-        break;
-      case "XDestroyWindow":
-        sig = "ipi";
-        break;
-      case "XRaiseWindow":
-        sig = "vpi";
-        break;
       case "XSetInputFocus":
         sig = "vpiil";
         break;
-      case "XSetFunction":
-        sig = "vppi";
-        break;
+      case "XSelectInput":
       case "XSetTransientForHint":
         sig = "vpii";
         break;
-      case "XPending":
-        sig = "ip";
-        break;
       case "XNextEvent":
         sig = "vpp";
-        break;
-      case "XFilterEvent":
-        sig = "ipi";
         break;
       case "XSendEvent":
         sig = "ipiilp";
@@ -622,9 +609,6 @@ function create_function(string funcname)
         break;
       case "XCreateIC":
         sig = "ppplplplp";
-        break;
-      case "XSelectInput":
-        sig = "ipii";
         break;
       case "XInternAtom":
         sig = "ippi";
@@ -684,9 +668,6 @@ function create_function(string funcname)
       case "XSetLineAttributes":
         sig = "vppiiii";
         break;
-      case "XSetSubwindowMode":
-        sig = "vppi";
-        break;
       case "XListProperties":
         sig = "ppip";
         break;
@@ -713,9 +694,6 @@ function create_function(string funcname)
         break;
       case "XCopyArea":
         sig = "vpiipiiiiii";
-        break;
-      case "XSetClipMask":
-        sig = "vppi";
         break;
       default:
         throw "Function " + funcname + " unknown";
