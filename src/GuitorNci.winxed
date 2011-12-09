@@ -28,6 +28,7 @@ const string
     EXPOSEVIEW           = "guitor_exposeview",
     FOCUSVIEW            = "guitor_focusview",
     CROSSINGVIEW         = "guitor_crossingview",
+    SELECTIONCLEARVIEW   = "guitor_selectionclearview",
     SELECTIONVIEW        = "guitor_selectionview",
     SELECTIONREQUESTVIEW = "guitor_selectionrequestview",
     CLIENTVIEW           = "guitor_clientview",
@@ -327,12 +328,29 @@ function getcrossingview()
     return st;
 }
 
+function getselectionclearview()
+{
+    var ns = namespace Xlib__nci;
+    var st = ns[SELECTIONCLEARVIEW];
+    if (st == null)
+        ns[SELECTIONCLEARVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 7,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // window
+            XLIB_Atom,     // selection
+            XLIB_time_t    // time
+        ] );
+    return st;
+}
+
 function getselectionrequestview()
 {
     var ns = namespace Xlib__nci;
     var st = ns[SELECTIONREQUESTVIEW];
     if (st == null)
-        ns[SELECTIONVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 10,
+        ns[SELECTIONREQUESTVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 10,
             DATATYPE_INT,  // type
             DATATYPE_LONG, // serial
             XLIB_Bool,     // send event
@@ -671,6 +689,9 @@ function create_function(string funcname)
       case "XListProperties":
         sig = "ppip";
         break;
+      case "XWarpPointer":
+        sig = "vpiiiiiiii";
+        break;
       case "XGrabPointer":
         sig = "ipiiiiiiil";
         break;
@@ -750,6 +771,13 @@ function create_xpm_function(string funcname)
 }
 
 //**************************************************************
+
+function str_to_achar(string s)
+{
+    var cstring = new ["ByteBuffer"];
+    cstring =: s;
+    return cstring;
+}
 
 function str_to_achar_utf8(string s)
 {

@@ -22,6 +22,7 @@ $include_const "datatypes.pasm";
 namespace Xlib__private
 {
 
+extern function str_to_achar;
 extern function str_to_achar_utf8;
 extern function str_to_cstring;
 extern function string_from_nci;
@@ -37,6 +38,7 @@ extern function getfocusview;
 extern function getmotionview;
 extern function getbuttonview;
 extern function getkeyview;
+extern function getselectionclearview;
 extern function getselectionrequestview;
 extern function getselectionview;
 extern function getclientview;
@@ -287,6 +289,10 @@ class Display
         getfun("XSendEvent")(self.xdisplay, xwindow,
                 propagate, event_mask, event.eventdata);
     }
+    function WarpPointer(int xwindow, int x, int y)
+    {
+        getfun("XWarpPointer")(self.xdisplay, None, xwindow, 0, 0, 0, 0, x, y);
+    }
     function SetWMProtocols(drawable, names)
     {
         __DEBUG__ && cry(__FUNCTION__);
@@ -408,6 +414,12 @@ class Display
     {
         return int(getfun("XGetSelectionOwner")(self.xdisplay, selection));
     }
+    function ConvertSelection(int selection, int target, int property,
+            requestor, int time)
+    {
+        getfun("XConvertSelection")(self.xdisplay, selection, target,
+                    property, requestor.xdrawable, time);
+    }
     function ChangePropertyInt32(int xwindow,
             int property, int type, int mode, int value)
     {
@@ -422,6 +434,14 @@ class Display
             int property, int type, int mode, string value)
     {
         var pvalue = str_to_achar_utf8(value);
+        var fun = getfun("XChangeProperty");
+        fun(self.xdisplay, xwindow, property, type, 8, mode,
+                pvalue, elements(pvalue));
+    }
+    function ChangePropertyStringIso(int xwindow,
+            int property, int type, int mode, string value)
+    {
+        var pvalue = str_to_achar(value);
         var fun = getfun("XChangeProperty");
         fun(self.xdisplay, xwindow, property, type, 8, mode,
                 pvalue, elements(pvalue));
@@ -688,6 +708,9 @@ class Event
           case LeaveNotify:
             view   = getcrossingview();
             break;
+          case SelectionClear:
+            view   = getselectionclearview();
+            break;
           case SelectionRequest:
             view   = getselectionrequestview();
             break;
@@ -766,6 +789,18 @@ class Event
             x_root = view[eventdata, 10];
             y_root = view[eventdata, 11];
             state  = view[eventdata, 16];
+            break;
+          case SelectionClear:
+            view   = getselectionclearview();
+            time   = view[eventdata, 6];
+            break;
+          case SelectionRequest:
+            view   = getselectionrequestview();
+            time   = view[eventdata, 9];
+            break;
+          case SelectionNotify:
+            view   = getselectionview();
+            time   = view[eventdata, 8];
             break;
         }
         self.evx =: x;
@@ -890,6 +925,10 @@ class Event
         var view;
         int pos;
         switch (type) {
+          case SelectionClear:
+            view   = getselectionclearview();
+            pos = 5;
+            break;
           case SelectionRequest:
             view   = getselectionrequestview();
             pos = 6;
@@ -1835,12 +1874,16 @@ class EditBox : ChildWindow
     var has_focus;
     var sel_from;
     var sel_to;
+    var pressed;
+    var inipos;
     const int MARGINSUP = 2;
     const int MARGINLEFT = 4;
     function EditBox(parent, int x, int y, int width, int height, font)
     {
         __DEBUG__ && cry(__FUNCTION__);
         self.text = '';
+        self.pressed = 0;
+        self.inipos = 0;
         self.pos = 0;
         self.offset = 0;
         if (height == 0)
@@ -1857,6 +1900,9 @@ class EditBox : ChildWindow
         self.OnConfigure += function (event) { self.onconfigure(event); };
         self.OnDestroy += function (event) { self.ondestroy(event); };
         self.OnExpose += function (event) { self.onexpose(event); };
+        self.OnButtonPress += function (event) { self.onbuttonpress(event); };
+        self.OnButtonRelease += function (event) { self.onbuttonrelease(event); };
+        self.OnMotion += function (event) { self.onmotion(event); };
         self.OnKeyPress += function (event) { self.onkeypress(event); };
         self.OnFocusIn += function (event) { self.onfocusin(event); };
         self.OnFocusOut += function (event) { self.onfocusout(event); };
@@ -1880,6 +1926,29 @@ class EditBox : ChildWindow
         if (has_focus)
             self.cursor();
     }
+    function getpos(int x)
+    {
+        x += self.offset - MARGINLEFT;
+        if (x < 0)
+            return 0;
+        string text = self.text;
+        int rp = length(text);
+        if (rp == 0)
+            return 0;
+        var display = self.display;
+        var font = self.font;
+        if (x > font.getTextxOff(display, text))
+            return rp;
+        int lp = 0;
+        int mp;
+        while ((mp = (lp + rp) / 2) != lp) {
+            if (x < font.getTextxOff(display, substr(text, 0, mp)))
+                rp = mp;
+            else
+                lp = mp;
+        }
+        return x < ((font.getTextxOff(display, substr(text, 0, mp)) + font.getTextxOff(display, substr(text, 0, mp + 1))) / 2) ? mp : mp + 1;
+    }
     function cursor()
     {
         __DEBUG__ && cry(__FUNCTION__);
@@ -1892,6 +1961,27 @@ class EditBox : ChildWindow
         self.SetFunction(GXinvert);
         self.DrawLine(x, MARGINSUP + 1, x, self.baseline + 1);
         self.SetFunction(GXcopy);
+    }
+    function checkoffset()
+    {
+        int pos = self.pos;
+        int offset = self.offset;
+        int old = offset;
+        int width = self.width;
+        int x = self.font.getTextxOff(self.display, substr(self.text, 0, pos)) + MARGINLEFT;
+        if (x < offset) {
+            offset = x - width / 3;
+            if (offset < 0)
+                offset = 0;
+        }
+        else if (x - offset > width - 2)
+            offset = x - 2 * width / 3;
+        if (old == offset)
+            return 0;
+        else {
+            self.offset =: offset;
+            return offset - old;
+        }
     }
     function drawall()
     {
@@ -1958,6 +2048,60 @@ class EditBox : ChildWindow
             self.has_focus =: false;
         }
     }
+    function onbuttonpress(event)
+    {
+        self.cursor();
+        self.cancelselection();
+        int pos = self.getpos(event.x());
+        self.pos =: pos;
+        self.drawall();
+        self.cursor();
+        switch (event.button()) {
+          case 1:
+            self.pressed =: true;
+            self.inipos =: pos;
+            break;
+          case 2:
+            // Paste primary selection
+            var display = self.display;
+            display.ConvertSelection(XA_PRIMARY,
+                    display.InternAtom("UTF8_STRING"),
+                    XA_PRIMARY, self, event.time());
+            break;
+        }
+    }
+    function onbuttonrelease(event)
+    {
+        if (! self.pressed)
+            return;
+        self.pressed =: false;
+        self.cursor();
+        int pos = self.pos;
+        int newpos = self.getpos(event.x());
+        if (newpos != pos) {
+            self.pos =: newpos;
+            self.setselection(self.inipos, newpos, event);
+        }
+        self.drawall();
+        self.cursor();
+    }
+    function onmotion(event)
+    {
+        if (! self.pressed)
+            return;
+        self.cursor();
+        int pos = self.pos;
+        int newpos = self.getpos(event.x());
+        if (newpos != pos) {
+            self.pos =: newpos;
+            int desp = self.checkoffset();
+            if (desp)
+                self.display.WarpPointer(self.xdrawable, event.x() - desp, event.y());
+            self.setselection(self.inipos, newpos, event);
+        }
+        self.drawall();
+        self.cursor();
+    }
     function onkeypress(event)
     {
         __DEBUG__ && cry(__FUNCTION__);
@@ -1983,14 +2127,8 @@ class EditBox : ChildWindow
                     dall = true;
                 }
                 self.pos =: --pos;
-                x = self.getTextWidth(substr(text, 0, pos));
-                if (x < offset) {
-                    offset = x - width / 4;
-                    if (offset < 0)
-                        offset = 0;
-                    self.offset =: offset;
+                if (self.checkoffset())
                     dall = true;
-                }
             }
             break;
           case "Right":
@@ -2000,26 +2138,19 @@ class EditBox : ChildWindow
                     dall = true;
                 }
                 self.pos = ++pos;
-                x = self.getTextWidth(substr(text, 0, pos));
-                if (x - offset >= width) {
-                    self.offset =: x - width / 4;
+                if (self.checkoffset())
                     dall = true;
-                }
             }
             break;
           case "End":
             self.cursor();
-            if (state & ShiftMask)
+            if (state & ShiftMask) {
                 self.changeselection(pos, l, event);
-            self.pos =: l;
-            x = self.getTextWidth(text);
-            if (x - offset > width) {
-                offset = x -  3 * width / 4;
-                if (offset < 0)
-                    offset = 0;
-                self.offset =: offset;
+                dall = true;
             }
-            dall = true;
+            self.pos =: l;
+            if (self.checkoffset())
+                dall = true;
             break;
           case "Home":
             if (pos != 0) {
@@ -2035,6 +2166,12 @@ class EditBox : ChildWindow
             }
             break;
           case "Delete":
+            if (self.sel_from != null) {
+                self.deleteselection();
+                self.checkoffset();
+                dall = true;
+                break;
+            }
             if (pos < l) {
                 self.cursor();
                 text = substr(text, 0, pos) + (pos < l - 1 ? substr(text, pos + 1) : "");
@@ -2043,6 +2180,12 @@ class EditBox : ChildWindow
             }
             break;
           case "BackSpace":
+            if (self.sel_from != null) {
+                self.deleteselection();
+                self.checkoffset();
+                dall = true;
+                break;
+            }
             if (pos > 0) {
                 self.cursor();
                 text = substr(text, 0, pos - 1) + (pos < l ? substr(text, pos) : "");
@@ -2079,16 +2222,18 @@ class EditBox : ChildWindow
                 ignore = true;
                 break;
             }
+            if (self.sel_from != null) {
+                self.deleteselection();
+                self.checkoffset();
+                dall = true;
+                text = self.text;
+                pos = self.pos;
+            }
             text = substr(text, 0, pos) + key + substr(text, pos);
             pos += length(key);
             self.pos =: pos;
             self.text =: text;
-            x = 0;
-            if (pos > 0)
-                x = self.font.getTextxOff(self.display, substr(text, 0, pos));
-
-            if (x - offset >= width)
-                self.offset =: x - width / 4;
+            self.checkoffset();
             dall = true;
         }
         if (! ignore) {
@@ -2102,12 +2247,16 @@ class EditBox : ChildWindow
     }
     function onselectionclear(event)
     {
+        int selection = event.selection();
+        if (selection != XA_PRIMARY)
+            return;
+
         var sel_from = self.sel_from;
-        if (sel_from != null) {
-            self.sel_from = null;
-            self.sel_to = null;
-            self.drawall();
-        }
+        if (sel_from == null)
+            return false;
+        self.sel_from = null;
+        self.sel_to = null;
+        self.drawall();
     }
     function onselectionrequest(event)
     {
@@ -2117,14 +2266,15 @@ class EditBox : ChildWindow
         int property = event.property();
         var display = self.display;
 
+        string targetname = display.GetAtomName(target);
         int typeutf8 = display.InternAtom("UTF8_STRING");
         // Request for supported types: answer only utf8 text.
-        if (display.GetAtomName(target) == "TARGETS") {
+        if (targetname == "TARGETS") {
             display.ChangePropertyInt32(requestor,
                     property, target, PropModeReplace, typeutf8);
         }
-        // Request for utf8 text: fine, do it.
-        else if (target == typeutf8) {
+        else if (target == typeutf8 || target == XA_STRING) {
+            // Request for text: fine, do it.
             string text = self.text;
             string textsel;
             var sel_from = self.sel_from;
@@ -2139,8 +2289,19 @@ class EditBox : ChildWindow
                 }
                 textsel = substr(text, from, to - from);
             }
-            display.ChangePropertyString(requestor,
-                    property, target, PropModeReplace, textsel);
+            // Some clients can request STRING without checking.
+            // Try to transcode in that case.
+            if (target == XA_STRING) {
+                try {
+                    textsel = trans_encoding(textsel, "iso-8859-1");
+                    display.ChangePropertyStringIso(requestor,
+                            property, target, PropModeReplace, textsel);
+                }
+                catch () { }
+            }
+            else
+                display.ChangePropertyString(requestor,
+                        property, target, PropModeReplace, textsel);
         }
         else
             return;
@@ -2166,11 +2327,8 @@ class EditBox : ChildWindow
         if (property == None) {
             if (target == display.InternAtom("UTF8_STRING")) {
                 // Retry with plain string type
-                int clipboard = display.InternAtom("CLIPBOARD");
-                getfun("XConvertSelection")(display.xdisplay,
-                        clipboard,
-                        XA_STRING,
-                        clipboard, self.xdrawable, event.time());
+                display.ConvertSelection(selection, XA_STRING,
+                        selection, self, event.time());
             }
             return;
         }
@@ -2189,11 +2347,7 @@ class EditBox : ChildWindow
         pos += l;
         self.text =: text;
         self.pos =: pos;
-        int offset = self.offset;
-        int width = self.width;
-        int x = self.font.getTextxOff(display, substr(text, 0, pos));
-        if (x - offset >= width)
-            self.offset =: x - width / 4;
+        self.checkoffset();
         self.drawall();
         self.cursor();
     }
@@ -2203,10 +2357,8 @@ class EditBox : ChildWindow
         int clipboard = display.InternAtom("CLIPBOARD");
         // First try to get a utf8 string. onselectonnotify will
         // do some fallback.
-        getfun("XConvertSelection")(display.xdisplay,
-                clipboard,
-                display.InternAtom("UTF8_STRING"),
-                clipboard, self.xdrawable, time);
+        display.ConvertSelection(clipboard, display.InternAtom("UTF8_STRING"),
+                clipboard, self, time);
     }
     function cancelselection()
     {
@@ -2219,15 +2371,41 @@ class EditBox : ChildWindow
         display.SetSelectionOwner(XA_PRIMARY , null, CurrentTime);
         return true;
     }
-    function changeselection(int from, int to, event)
+    function deleteselection()
+    {
+        int from = self.sel_from;
+        int to = self.sel_to;
+        if (from > to) {
+            to = from;
+            from = self.sel_to;
+        }
+        self.cancelselection();
+        string text = self.text;
+        text = substr(text, 0, from) + substr(text, to);
+        self.text =: text;
+        self.pos =: from;
+    }
+    function setselection(int from, int to, event)
     {
         var sel_from = self.sel_from;
         if (sel_from == null) {
-            self.sel_from = from;
-            self.sel_to = to;
             int time = event == null ? CurrentTime : event.time();
             self.display.SetSelectionOwner(XA_PRIMARY , self, time);
         }
+        int s_from = from;
+        int s_to = to;
+         if (from > to) {
+            s_from = to;
+            s_to = from;
+        }
+        self.sel_from = s_from;
+        self.sel_to = s_to;
+    }
+    function changeselection(int from, int to, event)
+    {
+        var sel_from = self.sel_from;
+        if (sel_from == null)
+            self.setselection(from, to, event);
         else {
             int s_from = sel_from;
             int s_to = self.sel_to;
