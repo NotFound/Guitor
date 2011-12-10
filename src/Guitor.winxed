@@ -2636,9 +2636,12 @@ class Menu
             menuWindow.Destroy();
         }
     }
-    function activate(parent, int x, int y)
+    function activate(parent, int x, int y, int time[optional],
+            int has_time[opt_flag])
     {
-        self._activate(parent, x, y, CurrentTime);
+        if (! has_time)
+            time = CurrentTime;
+        self._activate(parent, x, y, time);
     }
     function activate_from(parent, event)
     {
