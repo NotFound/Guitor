@@ -79,16 +79,16 @@ class EditWindow : TopLevelWindow
     function onclientmessage(event)
     {
         int type = event.message_type();
-        if (type == self.display.InternAtom("WM_PROTOCOLS")) {
+        if (type == self.InternAtom("WM_PROTOCOLS")) {
             int data0 = event.message_data(0);
-            if (data0 == self.display.InternAtom("WM_DELETE_WINDOW")) {
+            if (data0 == self.InternAtom("WM_DELETE_WINDOW")) {
                 self.display.Flush();
                 self.SetInputFocus(RevertToParent);
                 self.alive =: false;
                 self.edit.Destroy();
                 //self.Destroy();
             }
-            else if (data0 == self.display.InternAtom("WM_TAKE_FOCUS")) {
+            else if (data0 == self.InternAtom("WM_TAKE_FOCUS")) {
                 if (self.edit != null && self.alive)
                     self.edit.SetInputFocus(RevertToParent);
                 self.display.Flush();

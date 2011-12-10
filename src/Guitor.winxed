@@ -274,6 +274,10 @@ class Display
         return fn(self.xdisplay, parent.xdrawable, x, y, width, height,
                 border_width, border_color, background);
     }
+    function _DestroyWindow(int xwindow)
+    {
+        getfun("XDestroyWindow")(self.xdisplay, xwindow);
+    }
     function Pending()
     {
         return int(getfun("XPending")(self.xdisplay));
@@ -404,11 +408,15 @@ class Display
         }
         return pixmap, shape;
     }
+    function _SetSelectionOwner(int selection, int xwindow, int time)
+    {
+        getfun("XSetSelectionOwner")(self.xdisplay,
+                selection, xwindow, time);
+    }
     function SetSelectionOwner(int selection, window, int time)
     {
-        int xdrawable = window == null ? None : window.xdrawable;
-        getfun("XSetSelectionOwner")(self.xdisplay,
-                selection, xdrawable, time);
+        int xwindow = window == null ? None : window.xdrawable;
+        self._SetSelectionOwner(selection, xwindow, time);
     }
     function GetSelectionOwner(int selection)
     {
@@ -1352,7 +1360,7 @@ class Window : Drawable
         var xdrawable = self.xdrawable;
         if (xdrawable != null) {
             self.finalizedrawable();
-            getfun("XDestroyWindow")(self.display.xdisplay, xdrawable);
+            self.display._DestroyWindow(xdrawable);
         }
     }
     function CreateIC()
@@ -1518,7 +1526,7 @@ class Window : Drawable
     }
     function GetPropertyUtf8String(int property)
     {
-        var display = self.display;
+        var xdisplay = self.display.xdisplay;
         var viewint = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
         var viewlong = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_LONG ] );
         var viewptr = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_PTR ] );
@@ -1527,9 +1535,9 @@ class Window : Drawable
         var nitems_return = viewlong.alloc();
         var bytes_after_return = viewlong.alloc();
         var prop_return = viewptr.alloc();
-        int utf8_string = display.InternAtom("UTF8_STRING");
+        int utf8_string = self.InternAtom("UTF8_STRING");
         // Get 0 items, to check the size,
-        int r = getfun("XGetWindowProperty")(display.xdisplay, self.xdrawable,
+        int r = getfun("XGetWindowProperty")(xdisplay, self.xdrawable,
             property, 0, 0, false,
             utf8_string,
             actual_type_return, actual_format_return,
@@ -1543,7 +1551,7 @@ class Window : Drawable
             return "";
         n = (n + 3 ) / 4;
         // Now get the size obtained
-        r = getfun("XGetWindowProperty")(display.xdisplay, self.xdrawable,
+        r = getfun("XGetWindowProperty")(xdisplay, self.xdrawable,
             property, 0, n, true,
             utf8_string,
             actual_type_return, actual_format_return, nitems_return,
@@ -1554,6 +1562,21 @@ class Window : Drawable
         string result = prop.as_string("utf8");
         XFree(prop);
         return result;
+    }
+
+    function SetSelectionOwner(int selection, window, int time)
+    {
+        self.display._SetSelectionOwner(selection, self.xdrawable, time);
+    }
+
+    // Convenience methods that just dispatch to the display of this window
+    function InternAtom(string name, int only_if_exists[optional])
+    {
+        return self.display.InternAtom(name, only_if_exists);
+    }
+    function GetAtomName(int atom)
+    {
+        return self.display.GetAtomName(atom);
     }
 }
 
@@ -1856,7 +1879,7 @@ class TextButton : ChildWindow
             self.DrawRectangle(0, 0, width - 1, height - 1);
             var font = self.font;
             string text = self.text;
-            int twidth = self.font.getTextWidth(self.display, text);
+            int twidth = self.getTextWidth(text);
             int tx = (width - twidth) / 2;
             self.DrawImageString(tx, font.getAscent(), text);
         };
@@ -2072,7 +2095,7 @@ class EditBox : ChildWindow
             // Paste primary selection
             var display = self.display;
             display.ConvertSelection(XA_PRIMARY,
-                    display.InternAtom("UTF8_STRING"),
+                    self.InternAtom("UTF8_STRING"),
                     XA_PRIMARY, self, event.time());
             break;
         }
@@ -2215,8 +2238,8 @@ class EditBox : ChildWindow
                 key = "";
                 break;
               case "\x{3}":  // Ctrl-C Copy
-                display.SetSelectionOwner(display.InternAtom("CLIPBOARD"),
-                        self, event.time());
+                self.SetSelectionOwner(self.InternAtom("CLIPBOARD"),
+                       event.time());
                 key = "";
                 break;
               case "\x{16}": // Ctrl-V Paste
@@ -2272,8 +2295,8 @@ class EditBox : ChildWindow
         int property = event.property();
         var display = self.display;
 
-        string targetname = display.GetAtomName(target);
-        int typeutf8 = display.InternAtom("UTF8_STRING");
+        string targetname = self.GetAtomName(target);
+        int typeutf8 = self.InternAtom("UTF8_STRING");
         // Request for supported types: answer only utf8 text.
         if (targetname == "TARGETS") {
             display.ChangePropertyInt32(requestor,
@@ -2331,7 +2354,7 @@ class EditBox : ChildWindow
         int target = event.target();
         int property = event.property();
         if (property == None) {
-            if (target == display.InternAtom("UTF8_STRING")) {
+            if (target == self.InternAtom("UTF8_STRING")) {
                 // Retry with plain string type
                 display.ConvertSelection(selection, XA_STRING,
                         selection, self, event.time());
@@ -2359,11 +2382,10 @@ class EditBox : ChildWindow
     }
     function paste(int time)
     {
-        var display = self.display;
-        int clipboard = display.InternAtom("CLIPBOARD");
+        int clipboard = self.InternAtom("CLIPBOARD");
         // First try to get a utf8 string. onselectonnotify will
         // do some fallback.
-        display.ConvertSelection(clipboard, display.InternAtom("UTF8_STRING"),
+        display.ConvertSelection(clipboard, self.InternAtom("UTF8_STRING"),
                 clipboard, self, time);
     }
     function cancelselection()
@@ -2396,7 +2418,7 @@ class EditBox : ChildWindow
         var sel_from = self.sel_from;
         if (sel_from == null) {
             int time = event == null ? CurrentTime : event.time();
-            self.display.SetSelectionOwner(XA_PRIMARY , self, time);
+            self.SetSelectionOwner(XA_PRIMARY , time);
         }
         int s_from = from;
         int s_to = to;

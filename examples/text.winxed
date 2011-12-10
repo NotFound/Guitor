@@ -79,9 +79,8 @@ class TextWindow : TopLevelWindow
     function copyall()
     {
         // Copy all text to clipboard
-        var display = self.display;
-        int clipboard = display.InternAtom("CLIPBOARD");
-        display.SetSelectionOwner(clipboard, self, CurrentTime);
+        int clipboard = self.InternAtom("CLIPBOARD");
+        self.SetSelectionOwner(clipboard, CurrentTime);
     }
 
     function onconfigure(event)
@@ -172,9 +171,9 @@ class TextWindow : TopLevelWindow
         int property = event.property();
         var display = self.display;
 
-        int typeutf8 = display.InternAtom("UTF8_STRING");
+        int typeutf8 = self.InternAtom("UTF8_STRING");
         // Request for supported types: answer only utf8 text.
-        if (display.GetAtomName(target) == "TARGETS") {
+        if (self.GetAtomName(target) == "TARGETS") {
             display.ChangePropertyInt32(requestor,
                     property, target, PropModeReplace, typeutf8);
         }
