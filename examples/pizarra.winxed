@@ -250,22 +250,43 @@ class Thing
 
 class Line : Thing
 {
-    var x0;
-    var y0;
-    var x1;
-    var y1;
-    function Line(string colorspec, x0, int y0, int x1, int y1)
+    var x;
+    var y;
+    var closed;
+    function Line(string colorspec, int x0, int y0, int x1, int y1)
     {
         self.Thing(colorspec);
-        self.x0 = x0;
-        self.x1 = x1;
-        self.y0 = y0;
-        self.y1 = y1;
+        int x[] = [ x0, x1 - x0 ];
+        int y[] = [ y0, y1 - y0 ];
+        self.x = x;
+        self.y = y;
+        self.closed = false;
     }
     function draw(drawable)
     {
         self.setforeground(drawable);
-        drawable.DrawLine(self.x0, self.y0, self.x1, self.y1);
+        var x = self.x;
+        var y = self.y;
+        int x0 = x[0];
+        int y0 = y[0];
+        for (int i = 1, n = elements(x); i < n; ++i) {
+            int x1 = x0 + x[i];
+            int y1 = y0 + y[i];
+            drawable.DrawLine(x0, y0, x1, y1);
+            x0 = x1;
+            y0 = y1;
+        }
+        if (self.closed)
+            drawable.DrawLine(x0, y0, x[0], y[0]);
+    }
+    function addsegment(int x1, int y1)
+    {
+        push(self.x, x1);
+        push(self.y, y1);
+    }
+    function close()
+    {
+        self.closed =: true;
     }
 }
 
@@ -481,6 +502,7 @@ class Board : ChildWindow
     var oldy;
     var colorspec;
     var menu;
+    var grid;
     function Board(parent, int x, int y, int width, int height)
     {
         self.parent = parent;
@@ -493,6 +515,7 @@ class Board : ChildWindow
         self.oldx = 0;
         self.oldy = 0;
         self.colorspec = "black";
+        self.grid = 0;
 
         self.OnExpose        += evhandler(self, "onexpose");
         self.OnKeyPress      += evhandler(self, "onkeypress");
@@ -502,6 +525,10 @@ class Board : ChildWindow
 
         var menu = new Menu(self.display, self.display.CreateFont("courier-12"));
         menu.push("new window", method_fun(self.parent, "newwindow"));
+        menu.push("grid off", function () { self.setgrid(0); });
+        menu.push("grid 4", function () { self.setgrid(4); });
+        menu.push("grid 8", function () { self.setgrid(8); });
+        menu.push("grid 16", function () { self.setgrid(16); });
         menu.push("close",      method_fun(self.parent, "close"));
         self.menu = menu;
     }
@@ -538,6 +565,27 @@ class Board : ChildWindow
             //TODO else beep, or something.
             self.ClearArea(0, 0, 0, 0, 1);
             break;
+          case "Shift_L":
+          case "Shift_R":
+            if (self.pressed && self.mode == LINE) {
+                int initx = self.initx;
+                int inity = self.inity;
+                int oldx = self.oldx;
+                int oldy = self.oldy;
+                self.hintline(initx, inity, oldx, oldy);
+                var l = self.line;
+                if (l == null) {
+                    l = new Line(self.colorspec, initx, inity, oldx, oldy);
+                    self.line = l;
+                    self.listline.push(l);
+                }
+                else
+                    l.addsegment(oldx - initx, oldy - inity);
+                l.draw(self);
+                self.initx =: oldx;
+                self.inity =: oldy;
+            }
+            break;
           default:
             int sym = self.display.KeycodeToKeysym(code);
             say('Key name: ', self.display.KeysymToString(sym));
@@ -551,28 +599,25 @@ class Board : ChildWindow
             return;
         }
         self.pressed = button;
-        int oldx = event.x();
-        int oldy = event.y();
-        self.initx =: oldx;
-        self.inity =: oldy;
-        self.oldx =: oldx;
-        self.oldy =: oldy;
-        switch (self.mode) {
-          case RECTANGLE:
-          case FILLRECT:
-          case LINE:
-            self.SetFunction(GXinvert);
-            self.SetLineAttributes(0, LineOnOffDash, 0, 0);
-            self.SetSubwindowMode(IncludeInferiors);
-            break;
+        int x = event.x();
+        int y = event.y();
+        int grid = self.grid;
+        if (grid) {
+            x += grid;
+            x -= x % grid;
+            y += grid;
+            y -= y % grid;
         }
+        self.initx =: x;
+        self.inity =: y;
+        self.oldx =: x;
+        self.oldy =: y;
     }
     function onbuttonrelease(event)
     {
         if (! self.pressed)
             return;
         self.pressed = false;
-        self.line = null;
         int initx = self.initx;
         int inity = self.inity;
         int oldx = self.oldx;
@@ -582,9 +627,6 @@ class Board : ChildWindow
           case RECTANGLE:
           case FILLRECT:
             self.hintrectangle(initx, inity, oldx, oldy);
-            self.SetFunction(GXcopy);
-            self.SetLineAttributes(0, LineSolid, 0, 0);
-            self.SetSubwindowMode(ClipByChildren);
             var r = self.mode == RECTANGLE ?
                 new Rectangle(colorspec, initx, inity, oldx, oldy) :
                 new FillRectangle(colorspec, initx, inity, oldx, oldy);
@@ -593,20 +635,34 @@ class Board : ChildWindow
             break;
           case LINE:
             self.hintline(initx, inity, oldx, oldy);
-            self.SetFunction(GXcopy);
-            self.SetLineAttributes(0, LineSolid, 0, 0);
-            self.SetSubwindowMode(ClipByChildren);
-            var l = new Line(colorspec, initx, inity, oldx, oldy);
-            self.listline.push(l);
+            var l = self.line;
+            if (l == null) {
+                l = new Line(colorspec, initx, inity, oldx, oldy);
+                self.listline.push(l);
+            }
+            else {
+                if (event.state() & ShiftMask)
+                    l.close();
+                else
+                    l.addsegment(oldx - initx, oldy - inity);
+            }
             l.draw(self);
             break;
         }
+        self.line = null;
     }
     function onmotion(event)
     {
         if (self.pressed) {
             int x = event.x();
             int y = event.y();
+            int grid = self.grid;
+            if (grid) {
+                x += grid;
+                x -= x % grid;
+                y += grid;
+                y -= y % grid;
+            }
             int oldx = self.oldx;
             int oldy = self.oldy;
             if (x != oldx || y != oldy) {
@@ -637,9 +693,27 @@ class Board : ChildWindow
         }
     }
 
+    function setgrid(int n)
+    {
+        self.grid =: n;
+    }
+    function hinton()
+    {
+        self.SetFunction(GXinvert);
+        self.SetLineAttributes(0, LineOnOffDash, 0, 0);
+        self.SetSubwindowMode(IncludeInferiors);
+    }
+    function hintoff()
+    {
+        self.SetFunction(GXcopy);
+        self.SetLineAttributes(0, LineSolid, 0, 0);
+        self.SetSubwindowMode(ClipByChildren);
+    }
     function hintline(int x0, int y0, int x1, int y1)
     {
+        self.hinton();
         self.DrawLine(x0, y0, x1, y1);
+        self.hintoff();
     }
     function hintrectangle(int x0, int y0, int x1, int y1)
     {
@@ -656,7 +730,9 @@ class Board : ChildWindow
                 y = y1;
                 height = -height;
             }
+            self.hinton();
             self.DrawRectangle(x, y, width, height);
+            self.hintoff();
         }
     }
     function opencolorsel(int x, int y)
