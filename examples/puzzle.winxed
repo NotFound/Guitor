@@ -1,0 +1,251 @@
+#! winxed
+
+// puzzle
+
+$include "Guitor.winxhead";
+
+$load "Guitor.pbc";
+
+$loadlib "math_ops"; // For rand
+
+using namespace Guitor;
+
+//**************************************************************
+
+class Piece : ChildWindow
+{
+    var puzzle;
+    var foreground;
+    var background;
+    var width;
+    var height;
+    var label;
+    var baseline;
+    var x;
+    function Piece(parent, x, y, width, height, string label)
+    {
+        self.puzzle = parent;
+        var display = parent.display;
+        self.foreground = display.ParseColor("black");
+        self.background = display.ParseColor("yellow");
+        self.ChildWindow(parent, x, y, width, height,
+            { "background-color" : self.background });
+        var font = parent.font;
+        self.SetFont(font);
+        int h = font.getHeight();
+        int baseline = (height - h) / 2 + font.getAscent();
+        int xpos = (width - self.getTextWidth(label)) / 2;
+        self.width = width;
+        self.height = height;
+        self.label = label;
+        self.baseline = baseline;
+        self.x = xpos;
+        self.OnExpose += function (event) { self.onexpose(event); };
+        self.OnButtonPress += function(event) { self.puzzle.click(self.label); };
+    }
+    function onexpose(event)
+    {
+        self.SetForeground(self.foreground);
+        self.SetBackground(self.background);
+        self.DrawImageString(self.x, self.baseline, self.label);
+        self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
+    }
+}
+
+//**************************************************************
+
+class Puzzle : TopLevelWindow
+{
+    const int HOR = 7;
+    const int VER = 4;
+    var width;
+    var height;
+    var wpiece;
+    var hpiece;
+    var pieces;
+    var font;
+    var grid;
+    function Puzzle(controller)
+    {
+        int width = 764;
+        int height = 420;
+        self.TopLevelWindow(controller, "Puzzle", 0, 0, width, height);
+        self.setdims(width, height);
+        self.SetWMProtocols( [ "WM_DELETE_WINDOW" ] );
+        self.OnClientMessage += function (event) { self.Destroy(); };
+        self.OnDestroy += function (event) { controller.Quit(); };
+        var grid = [];
+        for (int i = 0; i < VER; ++i) {
+            int row[HOR];
+            grid[i] = row;
+        }
+        self.grid = grid;
+        self.createpieces();
+        self.shuffle();
+        for (var piece in self.pieces)
+            piece.Map();
+    }
+    function setdims(int width, int height)
+    {
+        self.width = width;
+        self.height = height;
+        int wpiece = width / HOR;
+        int hpiece = height / VER;
+        self.wpiece = wpiece;
+        self.hpiece = hpiece;
+        var display = self.display;
+        // Calculate appropiate font size:
+        var hs = display.Height();
+        var hsmm = display.HeightMM();
+        float h = float(hpiece);
+        h = h * 3 / 5;
+        // Convert pixesls to mm and then to points
+        h = h * hsmm / hs;
+        h = h / 0.3515;
+        var font = display.CreateFont("sans-" + string(int(h)));
+        self.font = font;
+    }
+    function createpieces()
+    {
+        int wpiece = self.wpiece;
+        int hpiece = self.hpiece;
+        var pieces = [];
+        var grid = self.grid;
+        for (int n = 1; n < VER * HOR; ++n) {
+            var piece = new Piece(self, 0, 0, wpiece - 4, hpiece - 4, n);
+            push(pieces, piece);
+        }
+        self.pieces = pieces;
+    }
+    function move(int n, int x, int y)
+    {
+        int wpiece = self.wpiece;
+        int hpiece = self.hpiece;
+        self.pieces[n - 1].MoveWindow(x * wpiece + 2, y * hpiece + 2);
+    }
+    function shuffle()
+    {
+        int orig[];
+        int dest[];
+        var grid = self.grid;
+        for (int i = 0; i < VER * HOR; ++i)
+            orig[i] = i;
+        for (int i = VER * HOR - 1; i > 0; --i) {
+            int r;
+            ${ rand r, i };
+            dest[i] = orig[r];
+            delete orig[r];
+        }
+        dest[0] = orig[0];
+
+        // Check parity and swap two non-zero elements if wrong
+        // to ensure teh puzzle is solvable.
+        int p = 0;
+        for (int i = 0; i < VER * HOR; ++i)
+            for (int j = i + 1; j < VER * HOR; ++j)
+                if (dest[i] > dest[j])
+                    ++p;
+        int i;
+        for (i = 0; i < VER * HOR; ++i)
+            if (dest[i] == 0)
+                break;
+        p += HOR - int (i / HOR) + VER - (i % HOR);
+        if (!(p & 1)) {
+            i = 0;
+            if (dest[0] == 0 || dest[1] == 0)
+                i = 2;
+            p = dest[i];
+            dest[0] = dest[i + 1];
+            dest[i + 1] = p;
+        }
+
+        for (int i = VER * HOR - 1; i >= 0; --i) {
+            int n = dest[i];
+            grid[int(i / HOR), i % HOR] = n;
+        }
+
+        var pieces = self.pieces;
+        int wpiece = self.wpiece;
+        int hpiece = self.hpiece;
+        for (int i = 0; i < VER; ++i)
+            for (int j = 0; j < HOR; ++j) {
+                int pos = grid[i, j] - 1;
+                if (pos < 0)
+                    continue;
+                pieces[pos].MoveWindow(j * wpiece + 2, i * hpiece + 2);
+            }
+    }
+    function click(int n)
+    {
+        var grid = self.grid;
+        // Get position
+        int x, y;
+        for (y = 0; y < VER; ++y) {
+            for (x = 0; x < HOR; ++x) {
+                if (int(grid[y, x]) == n)
+                    break;
+            }
+            if (x < HOR)
+                break;
+        }
+        // Chek for vertical move
+        int y1;
+        for (y1 = 0; y1 < VER; ++y1)
+            if (int(grid[y1, x]) == 0)
+                break;
+        if (y1 < VER) {
+            if (y1 < y) {
+                for (int y2 = y1 + 1; y2 <= y; ++y2) {
+                    int n = grid[y2, x];
+                    self.move(n, x, y2 - 1);
+                    grid[y2 - 1, x] = n;
+                }
+                grid[y, x] = 0;
+            }
+            else {
+                for (int y2 = y1 - 1; y2 >= y; --y2) {
+                    int n = grid[y2, x];
+                    self.move(n, x, y2 + 1);
+                    grid[y2 + 1, x] = n;
+                }
+                grid[y, x] = 0;
+            }
+        }
+        else {
+            // Check for horizontal move.
+            int x1;
+            for (x1 = 0; x1 < HOR; ++x1)
+                if (int(grid[y, x1]) == 0)
+                    break;
+            if (x1 >= HOR)
+                return;
+            if (x1 < x) {
+                for (int x2 = x1 + 1; x2 <= x; ++x2) {
+                    int n = grid[y, x2];
+                    self.move(n, x2 - 1, y);
+                    grid[y, x2 - 1] = n;
+                }
+            }
+            else {
+                for (int x2 = x1 - 1; x2 >= x; --x2) {
+                    int n = grid[y, x2];
+                    self.move(n, x2 + 1, y);
+                    grid[y, x2 + 1] = n;
+                }
+            }
+            grid[y, x] = 0;
+        }
+    }
+}
+
+//**************************************************************
+
+function main[main](args)
+{
+    var controller = new Controller();
+    var puzzle = new Puzzle(controller);
+    puzzle.Map();
+    controller.MainLoop();
+}
+
+// End
