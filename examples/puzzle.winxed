@@ -17,6 +17,8 @@ class Piece : ChildWindow
     var puzzle;
     var foreground;
     var background;
+    var brightline;
+    var darkline;
     var width;
     var height;
     var label;
@@ -27,7 +29,9 @@ class Piece : ChildWindow
         self.puzzle = parent;
         var display = parent.display;
         self.foreground = display.ParseColor("black");
-        self.background = display.ParseColor("yellow");
+        self.background = display.ParseColor("RGB:FF/FF/00");
+        self.brightline = display.ParseColor("RGB:FF/FF/DD");
+        self.darkline = display.ParseColor("RGB:88/55/33");
         self.ChildWindow(parent, x, y, width, height,
             { "background-color" : self.background });
         var font = parent.font;
@@ -48,7 +52,21 @@ class Piece : ChildWindow
         self.SetForeground(self.foreground);
         self.SetBackground(self.background);
         self.DrawImageString(self.x, self.baseline, self.label);
-        self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
+
+        int w = self.width - 1;
+        int h = self.height - 1;
+        self.SetForeground(self.darkline);
+        self.DrawLine(0,     0,     w,     0);
+        self.DrawLine(0,     0,     0,     h);
+        self.SetForeground(self.brightline);
+        self.DrawLine(1,     1,     w - 1, 1);
+        self.DrawLine(1,     1,     1,     h - 1);
+        self.SetForeground(self.darkline);
+        self.DrawLine(w - 1, 2,     w - 1, h - 1);
+        self.DrawLine(2,     h - 1, w - 1, h - 1);
+        self.SetForeground(self.foreground);
+        self.DrawLine(w,     1,     w,     h);
+        self.DrawLine(1,     h,     w,     h);
     }
     function onbuttonpress(event)
     {
