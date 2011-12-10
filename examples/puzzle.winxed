@@ -41,7 +41,7 @@ class Piece : ChildWindow
         self.baseline = baseline;
         self.x = xpos;
         self.OnExpose += function (event) { self.onexpose(event); };
-        self.OnButtonPress += function(event) { self.puzzle.click(self.label); };
+        self.OnButtonPress += function(event) { self.onbuttonpress(event); };
     }
     function onexpose(event)
     {
@@ -49,6 +49,17 @@ class Piece : ChildWindow
         self.SetBackground(self.background);
         self.DrawImageString(self.x, self.baseline, self.label);
         self.DrawRectangle(0, 0, self.width - 1, self.height - 1);
+    }
+    function onbuttonpress(event)
+    {
+        switch (event.button()) {
+          case 1:
+            self.puzzle.click(self.label);
+            break;
+          case 3:
+            self.puzzle.childpress(event);
+            break;
+        }
     }
 }
 
@@ -58,6 +69,9 @@ class Puzzle : TopLevelWindow
 {
     const int HOR = 7;
     const int VER = 4;
+    var menu;
+    var x;
+    var y;
     var width;
     var height;
     var wpiece;
@@ -69,11 +83,21 @@ class Puzzle : TopLevelWindow
     {
         int width = 764;
         int height = 420;
-        self.TopLevelWindow(controller, "Puzzle", 0, 0, width, height);
+        int x = 0;
+        int y = 0;
+        self.x = x;
+        self.y = y;
+        self.TopLevelWindow(controller, "Puzzle", x, y, width, height);
         self.setdims(width, height);
         self.SetWMProtocols( [ "WM_DELETE_WINDOW" ] );
-        self.OnClientMessage += function (event) { self.Destroy(); };
+        self.OnConfigure += function (event) { self.onconfigure(event); };
+        self.OnClientMessage += function (event) { self.quit(); };
         self.OnDestroy += function (event) { controller.Quit(); };
+        var menu = new Menu(self.display, self.display.CreateFont("sans-14"));
+        menu.push("shuffle", function () { self.shuffle(); } );
+        menu.push("quit", function () { self.quit(); } );
+        self.menu = menu;
+        self.OnButtonPress += function (event) { self.onbuttonpress(event); };
         var grid = [];
         for (int i = 0; i < VER; ++i) {
             int row[HOR];
@@ -84,6 +108,29 @@ class Puzzle : TopLevelWindow
         self.shuffle();
         for (var piece in self.pieces)
             piece.Map();
+    }
+    function onconfigure(event)
+    {
+        int x = event.x();
+        int y = event.y();
+        self.x =: x;
+        self.y =: y;
+    }
+    function onbuttonpress(event)
+    {
+        if (event.button() == 3)
+            self.menu.activate_from(self, event);
+    }
+    function childpress(event)
+    {
+        int x = event.x_root() - self.x;
+        int y = event.y_root() - self.y;
+        int time = event.time();
+        self.menu.activate(self, x, y, time);
+    }
+    function quit()
+    {
+        self.Destroy();
     }
     function setdims(int width, int height)
     {
