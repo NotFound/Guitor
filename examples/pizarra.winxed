@@ -670,12 +670,14 @@ class Board : ChildWindow
                   case HANDLINE:
                     var line = self.line;
                     if (line == null) {
-                        self.line = line = new HandLine(self.colorspec);
+                        string colorspec = self.colorspec;
+                        self.line = line = new HandLine(colorspec);
                         self.listline.push(line);
                         line.push(oldx, oldy);
+                        self.SetForeground(self.display.ParseColor(colorspec));
                     }
                     line.push(x - oldx, y - oldy);
-                    line.draw(self);
+                    self.DrawLine(oldx, oldy, x, y);
                     break;
                   case LINE:
                     self.hintline(self.initx, self.inity, oldx, oldy);
