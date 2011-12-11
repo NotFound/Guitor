@@ -92,6 +92,7 @@ class Puzzle : TopLevelWindow
     var y;
     var width;
     var height;
+    var ypbase;
     var wpiece;
     var hpiece;
     var pieces;
@@ -100,21 +101,35 @@ class Puzzle : TopLevelWindow
     function Puzzle(controller)
     {
         int width = 764;
-        int height = 420;
+        int height = 440;
         int x = 0;
         int y = 0;
         self.x = x;
         self.y = y;
         self.TopLevelWindow(controller, "Puzzle", x, y, width, height);
-        self.setdims(width, height);
         self.SetWMProtocols( [ "WM_DELETE_WINDOW" ] );
         self.OnConfigure += function (event) { self.onconfigure(event); };
         self.OnClientMessage += function (event) { self.quit(); };
         self.OnDestroy += function (event) { controller.Quit(); };
-        var menu = new Menu(self.display, self.display.CreateFont("sans-14"));
+
+        var display = self.display;
+        var menufont = display.CreateFont("sans-12");
+        var menubar = new MenuBar(display, menufont);
+        var menufile = new Menu(display, menufont);
+        menufile.push("shuffle", function () { self.shuffle(); } );
+        menufile.push("quit", function () { self.quit(); } );
+        menubar.push("Game", menufile);
+        var menuwin = menubar.activate(self, 0, 0, width);
+        menuwin.Map();
+        int ypbase = menubar.getheight() + 2;
+        self.ypbase = ypbase;
+        self.setdims(width, height);
+
+        var menu = new Menu(display, menufont);
         menu.push("shuffle", function () { self.shuffle(); } );
         menu.push("quit", function () { self.quit(); } );
         self.menu = menu;
+
         self.OnButtonPress += function (event) { self.onbuttonpress(event); };
         var grid = [];
         for (int i = 0; i < VER; ++i) {
@@ -155,7 +170,7 @@ class Puzzle : TopLevelWindow
         self.width = width;
         self.height = height;
         int wpiece = width / HOR;
-        int hpiece = height / VER;
+        int hpiece = (height - self.ypbase) / VER;
         self.wpiece = wpiece;
         self.hpiece = hpiece;
         var display = self.display;
@@ -184,9 +199,10 @@ class Puzzle : TopLevelWindow
     }
     function move(int n, int x, int y)
     {
+        int ypbase = self.ypbase;
         int wpiece = self.wpiece;
         int hpiece = self.hpiece;
-        self.pieces[n - 1].MoveWindow(x * wpiece + 2, y * hpiece + 2);
+        self.pieces[n - 1].MoveWindow(x * wpiece + 2, y * hpiece + 2 + ypbase);
     }
     function shuffle()
     {
@@ -230,6 +246,7 @@ class Puzzle : TopLevelWindow
         }
 
         var pieces = self.pieces;
+        int ypbase = self.ypbase;
         int wpiece = self.wpiece;
         int hpiece = self.hpiece;
         for (int i = 0; i < VER; ++i)
@@ -237,7 +254,7 @@ class Puzzle : TopLevelWindow
                 int pos = grid[i, j] - 1;
                 if (pos < 0)
                     continue;
-                pieces[pos].MoveWindow(j * wpiece + 2, i * hpiece + 2);
+                pieces[pos].MoveWindow(j * wpiece + 2, i * hpiece + 2 + ypbase);
             }
     }
     function click(int n)

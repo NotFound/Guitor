@@ -2471,6 +2471,8 @@ class MenuWindow : ChildWindow
 {
     const int CURRENT_NONE = -1;
     var menu;
+    var x;
+    var y;
     var width;
     var height;
     var hbase;
@@ -2484,6 +2486,8 @@ class MenuWindow : ChildWindow
     {
         var display = parent.display;
         self.menu = menu;
+        self.x = x;
+        self.y = y;
         var items = menu.items;
         int nitems = elements(items);
         int hitem = menu.font.getHeight();
@@ -2509,6 +2513,7 @@ class MenuWindow : ChildWindow
         self.current = CURRENT_NONE;
         self.ChildWindow(parent, x + 1, y + 1, width, height,
                 { "background-color" : bgcolor } );
+        self.SetFont(menu.font);
         self.SetForeground(fgcolor);
         self.SetBackground(bgcolor);
         self.OnExpose += function (event) { self.onexpose(event); };
@@ -2623,10 +2628,15 @@ class Menu
     {
         push(self.items, new MenuItem(name, action));
     }
-    function _activate(parent, int x, int y, int time)
+    function open(parent, x, y)
     {
         var menuwindow = new MenuWindow(parent, x, y, self);
         menuwindow.Map();
+        return menuwindow;
+    }
+    function _activate(parent, int x, int y, int time)
+    {
+        var menuwindow = self.open(parent, x, y);
         const int mask = EnterWindowMask | LeaveWindowMask |
                 ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
         int grab = menuwindow.GrabPointer(false, mask,
@@ -2646,6 +2656,195 @@ class Menu
     function activate_from(parent, event)
     {
         self._activate(parent, event.x(), event.y(), event.time());
+    }
+}
+
+//**************************************************************
+
+// A barely functional menu bar to be used in examples and tests.
+// No keyboard interface, only mouse.
+// TODO: better integration with Menu and MenuWindow.
+
+const int BARSEP = 16;
+
+class MenuBarWindow : ChildWindow
+{
+    var parent;
+    var menubar;
+    var itempos;
+    var height;
+    var active;
+    var child;
+    function MenuBarWindow(parent, int x, int y, int width, menubar)
+    {
+        self.parent = parent;
+        self.menubar = menubar;
+        var display = menubar.display;
+        var font = menubar.font;
+        var fgcolor = display.ParseColor("black");
+        var bgcolor = display.ParseColor("grey90");
+        int height = font.getHeight() + 8;
+        self.height = height;
+        if (width <= 0)
+            width = menubar.maxWidth();
+        self.active = false;
+        self.ChildWindow(parent, x, y, width, height,
+                { "background-color" : bgcolor } );
+        self.SetFont(font);
+        self.SetForeground(fgcolor);
+        self.SetBackground(bgcolor);
+        var items = self.menubar.items;
+        int nitems = elements(items);
+        int itempos[nitems];
+        int xp = BARSEP / 2;
+        for (int i = 0; i < nitems; ++i) {
+            itempos[i] = xp;
+            xp += self.getTextWidth(items[i].name) + BARSEP;
+        }
+        self.itempos = itempos;
+        self.OnExpose += function (event) { self.onexpose(event); };
+        self.OnButtonPress += function (event) { self.onbuttonpress(event); };
+        self.OnButtonRelease += function (event) { self.onbuttonrelease(event); };
+        self.OnMotion += function (event) { self.onmotion(event); };
+    }
+    function itemAt(int x)
+    {
+        var items = self.menubar.items;
+        int n = elements(items);
+        int xpos = BARSEP / 2;
+        int pad = BARSEP / 4;
+        for (int i = 0; i < n; ++i) {
+            string str = items[i].name;
+            int w = self.getTextWidth(str);
+            if (x >= xpos - pad && x <= xpos + w + pad)
+                return i;
+            xpos += w + BARSEP;
+        }
+        return -1;
+    }
+    function onexpose(event)
+    {
+        int baseline = self.menubar.font.getAscent() + 2;
+        var items = self.menubar.items;
+        int n = elements(items);
+        var itempos = self.itempos;
+        for (int i = 0; i < n; ++i) {
+            string str = items[i].name;
+            self.DrawImageString(itempos[i], baseline, str);
+        }
+    }
+    function onbuttonpress(event)
+    {
+        if (event.button() != 1)
+            return;
+        self.active =: true;
+        int x = event.x();
+        int y = event.y();
+        int nitem = self.itemAt(x);
+        if (nitem != -1) {
+            int x = self.itempos[nitem];
+            var action = self.menubar.items[nitem].action;
+            self.child = action.open(self.parent, x, self.height - 4);
+        }
+    }
+    function onbuttonrelease(event)
+    {
+        self.active =: false;
+        var child = self.child;
+        if (child != null) {
+            int current = child.current;
+            var action;
+            if (current >= 0)
+                action = child.menu.items[current].action;
+            self.child = null;
+            self.controller.pushaction(function () { child.Destroy(); } );
+            if (action != null)
+                self.controller.pushaction(action);
+        }
+    }
+    function onmotion(event)
+    {
+        if (! self.active)
+            return;
+        var viewint = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var root_return = viewint.alloc();
+        var child_return = viewint.alloc();
+        var win_x_return = viewint.alloc();
+        var win_y_return = viewint.alloc();
+        var n = viewint.alloc();
+        int r = getfun("XQueryPointer")(self.display.xdisplay,
+            self.parent.xdrawable, root_return, child_return,
+            n, n, win_x_return, win_y_return, n);
+        int child_p = viewint[child_return, 0];
+        var child = self.child;
+        if (r && child_p != None) {
+            int childid = child == null ? None : child.xdrawable;
+            if (child != null && child_p == childid) {
+                int win_x = viewint[win_x_return, 0];
+                int win_y = viewint[win_y_return, 0];
+                child.setcurrent(win_x - child.x, win_y - child.y);
+            }
+            else {
+                if (child != null)
+                    child.setcurrent(-1, -1);
+            }
+        }
+        else {
+            if (child != null)
+                child.setcurrent(-1, -1);
+        }
+    }
+}
+
+class MenuBarItem
+{
+    var name;
+    var action;
+    function MenuBarItem(string name, action)
+    {
+        self.name = name;
+        self.action = action;
+    }
+}
+
+class MenuBar
+{
+    var display;
+    var font;
+    var items;
+    function MenuBar(display, font)
+    {
+        self.display = display;
+        self.font = font;
+        self.items = [];
+    }
+    function getwidth()
+    {
+        var items = self.items;
+        int n = elements(items);
+        if (n == 0)
+            return 0;
+        var display = self.display;
+        var font = self.font;
+        int width = BARSEP / 2 + (n - 1) * BARSEP;
+        for (int i = 0; i < n; ++i) {
+            int w = font.getTextxOff(display, items[i].name);
+            width += w;
+        }
+        return width;
+    }
+    function getheight()
+    {
+        return int(self.font.getHeight()) + 8;
+    }
+    function push(string name, action)
+    {
+        push(self.items, new MenuBarItem(name, action));
+    }
+    function activate(parent, int x, int y, int width)
+    {
+        var window = new MenuBarWindow(parent, x, y, width, self);
+        return window;
     }
 }
 

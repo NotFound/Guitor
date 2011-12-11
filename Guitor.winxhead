@@ -16,6 +16,7 @@ class ChildWindow;
 class TextButton;
 class EditBox;
 class Menu;
+class MenuBar;
 
 }
 

@@ -689,6 +689,9 @@ function create_function(string funcname)
       case "XListProperties":
         sig = "ppip";
         break;
+      case "XQueryPointer":
+        sig = "ipippppppp";
+        break;
       case "XWarpPointer":
         sig = "vpiiiiiiii";
         break;
