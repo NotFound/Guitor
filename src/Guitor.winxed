@@ -1407,12 +1407,18 @@ class Window : Drawable
     function Map()
     {
         __DEBUG__ && cry(__FUNCTION__);
-        getfun("XMapWindow")(self.display.xdisplay, self.xdrawable);
+        var xdrawable = self.xdrawable;
+        if (xdrawable == null || xdrawable == None)
+            throw "Can't Map window, not open";
+        getfun("XMapWindow")(self.display.xdisplay, xdrawable);
     }
     function Unmap()
     {
         __DEBUG__ && cry(__FUNCTION__);
-        getfun("XUnmapWindow")(self.display.xdisplay, self.xdrawable);
+        var xdrawable = self.xdrawable;
+        // Silently ignore the closed window cases
+        if (xdrawable != null && xdrawable != None)
+            getfun("XUnmapWindow")(self.display.xdisplay, xdrawable);
     }
     function ClearArea(int x, int y, int width, int height, int exposures)
     {
