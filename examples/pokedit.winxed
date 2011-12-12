@@ -103,6 +103,7 @@ class TextWindow : ChildWindow
         self.OnFocusIn         += eventhandler(self, "onfocusin");
         self.OnFocusOut        += eventhandler(self, "onfocusout");
         self.OnKeyPress        += eventhandler(self, "onkeypress");
+        self.OnButtonPress     += eventhandler(self, "onbuttonpress");
         self.OnSelectionNotify += eventhandler(self, "onselectionnotify");
     }
     function ondestroy(event)
@@ -325,6 +326,18 @@ class TextWindow : ChildWindow
             }
         }
         self.cursor();
+    }
+    function onbuttonpress(event)
+    {
+        switch (event.button()) {
+          case 2:
+            // Paste primary selection - unfinished
+            var display = self.display;
+            display.ConvertSelection(XA_PRIMARY,
+                    self.InternAtom(UTF8_STRING),
+                    XA_PRIMARY, self, event.time());
+            break;
+        }
     }
     function onselectionnotify(event)
     {
