@@ -42,7 +42,14 @@ function method_fun(object, string methodname)
 const string
     WM_PROTOCOLS_s     = "WM_PROTOCOLS",
     WM_DELETE_WINDOW_s = "WM_DELETE_WINDOW",
-    WM_TAKE_FOCUS_s    = "WM_TAKE_FOCUS";
+    WM_TAKE_FOCUS_s    = "WM_TAKE_FOCUS",
+    UTF8_STRING        = "UTF8_STRING",
+    CLIPBOARD          = "CLIPBOARD";
+
+// Special keys
+const string 
+    CTRL_C = "\x{3}",
+    CTRL_V = "\x{16}";
 
 //**************************************************************
 
@@ -90,12 +97,13 @@ class TextWindow : ChildWindow
         self.SetForeground(self.fgcolor);
         self.SetBackground(self.bgcolor);
 
-        self.OnDestroy   += eventhandler(self, "ondestroy");
-        self.OnConfigure += eventhandler(self, "onconfigure");
-        self.OnExpose    += eventhandler(self, "onexpose");
-        self.OnFocusIn   += eventhandler(self, "onfocusin");
-        self.OnFocusOut  += eventhandler(self, "onfocusout");
-        self.OnKeyPress  += eventhandler(self, "onkeypress");
+        self.OnDestroy         += eventhandler(self, "ondestroy");
+        self.OnConfigure       += eventhandler(self, "onconfigure");
+        self.OnExpose          += eventhandler(self, "onexpose");
+        self.OnFocusIn         += eventhandler(self, "onfocusin");
+        self.OnFocusOut        += eventhandler(self, "onfocusout");
+        self.OnKeyPress        += eventhandler(self, "onkeypress");
+        self.OnSelectionNotify += eventhandler(self, "onselectionnotify");
     }
     function ondestroy(event)
     {
@@ -299,6 +307,9 @@ class TextWindow : ChildWindow
                 if (! self.movedown())
                     self.drawlines(curline, 0);
                 break;
+              case CTRL_V:
+                self.paste(event.time());
+                break;
               case "\t":
                 // Cheap trick
                 l = 8 - (curpos % 8);
@@ -314,6 +325,92 @@ class TextWindow : ChildWindow
             }
         }
         self.cursor();
+    }
+    function onselectionnotify(event)
+    {
+        var display = self.display;
+        int selection = event.selection();
+        int target = event.target();
+        int property = event.property();
+        if (property == None) {
+            if (target == self.InternAtom("UTF8_STRING")) {
+                // Retry with plain string type
+                display.ConvertSelection(selection, XA_STRING,
+                        selection, self, event.time());
+            }
+            return;
+        }
+        string pasted;
+        if (target == XA_STRING)
+            pasted = self.GetPropertyString(property);
+        else
+            pasted = self.GetPropertyUtf8String(property);
+        if (pasted == null)
+            return;
+        int lenpasted = length(pasted);
+        if (lenpasted == 0)
+            return;
+        self.cursor();
+        int curline = self.curline;
+        int curpos = self.curpos;
+        var text = self.text;
+        string line = text[curline];
+        int pos = indexof(pasted, "\n");
+        if (pos < 0) {
+            line = substr(line, 0, curpos) + pasted + substr(line, curpos);
+            curpos += length(pasted);
+            text[curline] = line;
+            self.curpos =: curpos;
+            self.drawline(curline);
+        }
+        else {
+            int fpos = pos;
+            string plines[];
+            int npos;
+            while ((npos = indexof(pasted, "\n", pos + 1)) >= 0) {
+                string l = substr(pasted, pos + 1, npos - pos - 1);
+                push(plines, l);
+                pos = npos;
+            }
+            int nplines = elements(plines);
+            string firstline = substr(line, 0, curpos) + substr(pasted, 0, fpos);
+            string lastline = substr(pasted, pos + 1) + substr(line, curpos);
+            self.curpos = lenpasted - pos - 1;
+            for (int i = elements(text); i > curline; --i)
+                text[i + nplines + 1] = text[i];
+            for (int i = 0; i < nplines; ++i)
+                text[curline + i + 1] = plines[i];
+            text[curline] = firstline;
+            text[curline + nplines + 1] = lastline;
+            int oldcurline = curline;
+            self.curline =: curline + nplines + 1;
+            if (self.adjust())
+                self.drawall();
+            else
+                self.drawlines(oldcurline, 0);
+        }
+        self.cursor();
+    }
+    function paste(int time)
+    {
+        int clipboard = self.InternAtom(CLIPBOARD);
+        self.display.ConvertSelection(clipboard, self.InternAtom(UTF8_STRING),
+                clipboard, self, time);
+    }
+    function adjust()
+    {
+        int height = self.height;
+        int lineheight = self.lineheight;
+        int headline = self.headline;
+        int maxlines = self.maxlines;
+        int lastline = headline + maxlines;
+        int curline = self.curline;
+        if (curline >= lastline) {
+            self.headline =: curline - maxlines + 1;
+            return true;
+        }
+        else
+            return false;
     }
     function moveup()
     {
@@ -336,8 +433,8 @@ class TextWindow : ChildWindow
         int height = self.height;
         int lineheight = self.lineheight;
         int headline = self.headline;
-        int maxline = headline + (height - MARGINSUP) / lineheight;
-        if (curline >= maxline) {
+        int maxlines = self.maxlines;
+        if (curline >= headline + maxlines) {
             self.scrolldown();
             return true;
         }
@@ -451,8 +548,11 @@ class PokeditWindow : TopLevelWindow
         var menubar = new MenuBar(display, menufont);
         var filemenu = new Menu(display, menufont);
         filemenu.push("close", method_fun(self, "close") );
+        var editmenu = new Menu(display, menufont);
+        editmenu.push("paste", method_fun(self, "paste") );
 
         menubar.push("File", filemenu);
+        menubar.push("Edit", editmenu);
         int menubarh = menubar.getheight();
         self.menubarh = menubarh;
         var menubarw = menubar.activate(self, 0, 0, width);
@@ -544,6 +644,12 @@ class PokeditWindow : TopLevelWindow
         }
         else
             self.Destroy();
+    }
+    function paste()
+    {
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.paste(CurrentTime);
     }
 }
 
