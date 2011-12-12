@@ -332,13 +332,12 @@ class TextWindow : ChildWindow
         int curline = self.curline;
         int curpos = self.curpos;
         int lineheight = self.lineheight;
-        int ascent = self.ascent;
         int headline = self.headline;
         int ypos = (curline - headline) * lineheight + MARGINSUP;
         string line = text[curline];
         int xpos = self.getTextxOff(substr(line, 0, curpos)) + MARGINLEFT;
         self.SetFunction(GXinvert);
-        self.DrawLine(xpos, ypos, xpos, ypos + ascent);
+        self.FillRectangle(xpos, ypos, 2, lineheight);
         self.SetFunction(GXcopy);
     }
     function drawall()
