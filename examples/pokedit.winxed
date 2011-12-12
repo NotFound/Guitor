@@ -400,8 +400,8 @@ class PokeditWindow : TopLevelWindow
 
         self.SetWMProtocols( [ WM_DELETE_WINDOW_s, WM_TAKE_FOCUS_s ] );
 
-        self.OnDestroy       += eventhandler(self, "ondestroy");
         self.OnConfigure     += eventhandler(self, "onconfigure");
+        self.OnMap           += eventhandler(self, "onmap");
         self.OnClientMessage += eventhandler(self, "onclientmessage");
 
         var menubar = new MenuBar(display, menufont);
@@ -420,10 +420,6 @@ class PokeditWindow : TopLevelWindow
         menubarw.Map();
         //textwindow.Map();
     }
-    function ondestroy(event)
-    {
-        self.controller.pokeditclosed(self);
-    }
     function onconfigure(event)
     {
         int width = event.width();
@@ -435,6 +431,11 @@ class PokeditWindow : TopLevelWindow
             textwindow.ResizeWindow(width - 2, height - menubarh - 2);
         self.width = width;
         self.height = height;
+    }
+    function onmap(event)
+    {
+        if (self.textwindow != null)
+            self.textwindow.Map();
     }
     function onclientmessage(event)
     {
@@ -489,15 +490,16 @@ class PokeditWindow : TopLevelWindow
             self.menubarw = null;
             menubarw.Destroy();
         }
+        // If the text window is still here, destroy it.
+        // Its OnDentroy handler will call this method again.
+        // In the following call, destroy self.
         var textwindow = self.textwindow;
         if (textwindow != null) {
             self.textwindow = null;
             self.controller.pushaction(method_fun(textwindow, "close"));
         }
-        else {
-            cry("destroy");
+        else
             self.Destroy();
-        }
     }
 }
 
@@ -508,6 +510,19 @@ class PokeditController : Controller
     function PokeditController()
     {
         self.Controller();
+    }
+    function pokeditnew()
+    {
+        var pokedit = new PokeditWindow(self);
+        pokedit.OnDestroy += function (event) { self.pokeditclosed(pokedit); };
+        pokedit.Map();
+    }
+    function pokeditopen(string filename)
+    {
+        var pokedit = new PokeditWindow(self);
+        pokedit.openfile(filename);
+        pokedit.OnDestroy += function (event) { self.pokeditclosed(pokedit); };
+        pokedit.Map();
     }
     function pokeditclosed(window)
     {
@@ -520,11 +535,10 @@ class PokeditController : Controller
 function main [main] (args)
 {
     var controller = new PokeditController();
-    var pokedit = new PokeditWindow(controller);
     if (elements(args) > 1)
-        pokedit.openfile(args[1]);
-    pokedit.textwindow.Map();
-    pokedit.Map();
+        controller.pokeditopen(args[1]);
+    else
+        controller.pokeditnew();
     controller.MainLoop();
     controller.Close();
 }
