@@ -284,6 +284,34 @@ class TextWindow : ChildWindow
                 self.drawall();
             }
             break;
+          default:
+            key = self.LookupString(event);
+            string line = text[curline];
+            switch (key) {
+              case "\r":
+                string newline = substr(line, curpos);
+                line = substr(line, 0, curpos);
+                for (int i = elements(text); i > curline; --i)
+                    text[i] = text[i - 1];
+                text[curline] = line;
+                text[curline + 1] = newline;
+                self.curpos =: 0;
+                if (! self.movedown())
+                    self.drawlines(curline, 0);
+                break;
+              case "\t":
+                // Cheap trick
+                l = 8 - (curpos % 8);
+                key = " " * l;
+              default:
+                if (key == null || length(key) == 0 || ord(key) < ord(" "))
+                    break;
+                line = substr(line, 0, curpos) + key + substr(line, curpos);
+                curpos += length(key);
+                text[curline] = line;
+                self.curpos =: curpos;
+                self.drawline(curline);
+            }
         }
         self.cursor();
     }
@@ -293,8 +321,12 @@ class TextWindow : ChildWindow
         --curline;
         self.curline =: curline;
         int headline = self.headline;
-        if (headline > curline)
+        if (headline > curline) {
             self.scrollup();
+            return true;
+        }
+        else
+            return false;
     }
     function movedown()
     {
@@ -305,8 +337,12 @@ class TextWindow : ChildWindow
         int lineheight = self.lineheight;
         int headline = self.headline;
         int maxline = headline + (height - MARGINSUP) / lineheight;
-        if (curline >= maxline)
+        if (curline >= maxline) {
             self.scrolldown();
+            return true;
+        }
+        else
+            return false;
     }
     function scrollup()
     {
@@ -345,6 +381,15 @@ class TextWindow : ChildWindow
         int headline = self.headline;
         int maxlines = self.maxlines;
         for (int line = headline; line < headline + maxlines; ++line)
+            self.drawline(line);
+    }
+    function drawlines(int from, int to)
+    {
+        int headline = self.headline;
+        int maxlines = self.maxlines;
+        if (to == 0)
+            to = headline + maxlines - 1;
+        for (int line = from; line <= to; ++line)
             self.drawline(line);
     }
     function drawline(int nline)
