@@ -35,6 +35,7 @@ extern function getstructureview;
 extern function getexposeview;
 extern function getcrossingview;
 extern function getfocusview;
+extern function getmapview;
 extern function getmotionview;
 extern function getbuttonview;
 extern function getkeyview;
@@ -715,6 +716,10 @@ class Event
           case FocusIn:
           case FocusOut:
             view   = getfocusview();
+            break;
+          case MapNotify:
+          case UnmapNotify:
+            view   = getmapview();
             break;
           case EnterNotify:
           case LeaveNotify:
@@ -1718,6 +1723,8 @@ class ListenerWindow : Window
     var OnLeave;
     var OnFocusIn;
     var OnFocusOut;
+    var OnMap;
+    var OnUnmap;
     var OnSelectionClear;
     var OnSelectionRequest;
     var OnSelectionNotify;
@@ -1736,6 +1743,8 @@ class ListenerWindow : Window
         self.OnLeave = new EventHandler(self, LeaveWindowMask);
         self.OnFocusIn = new EventHandler(self, FocusChangeMask);
         self.OnFocusOut = new EventHandler(self, FocusChangeMask);
+        self.OnMap = new EventHandler(self, StructureNotifyMask);
+        self.OnUnmap = new EventHandler(self, StructureNotifyMask);
         self.OnSelectionClear = new EventHandler(self, 0);
         self.OnSelectionRequest = new EventHandler(self, 0);
         self.OnSelectionNotify = new EventHandler(self, 0);
@@ -1782,6 +1791,12 @@ class ListenerWindow : Window
             break;
           case FocusOut:
             handler = self.OnFocusOut;
+            break;
+          case MapNotify:
+            handler = self.OnMap;
+            break;
+          case UnmapNotify:
+            handler = self.OnUnmap;
             break;
           case EnterNotify:
             handler = self.OnEnter;

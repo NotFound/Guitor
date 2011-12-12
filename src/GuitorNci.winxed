@@ -27,6 +27,7 @@ const string
     STRUCTUREVIEW        = "structureview",
     EXPOSEVIEW           = "exposeview",
     FOCUSVIEW            = "focusview",
+    MAPVIEW              = "mapview",
     CROSSINGVIEW         = "crossingview",
     SELECTIONCLEARVIEW   = "selectionclearview",
     SELECTIONVIEW        = "selectionview",
@@ -297,6 +298,24 @@ function getfocusview()
             XLIB_Window,   // window
             DATATYPE_INT,  // mode
             DATATYPE_INT   // detail
+        ] );
+    return st;
+}
+
+function getmapview()
+{
+    // Used for Map and Unmap Notify
+    var ns = namespace Xlib__nci;
+    var st = ns[MAPVIEW];
+    if (st == null)
+        ns[FOCUSVIEW] = st = new ["StructView"]( [ DATATYPE_STRUCT, 7,
+            DATATYPE_INT,  // type
+            DATATYPE_LONG, // serial
+            XLIB_Bool,     // send event
+            DATATYPE_PTR,  // display
+            XLIB_Window,   // event window
+            XLIB_Window,   // window mapped
+            XLIB_Bool      // dverride_redirect or from_configure
         ] );
     return st;
 }
