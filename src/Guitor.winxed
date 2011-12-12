@@ -2482,6 +2482,7 @@ class MenuWindow : ChildWindow
     var width;
     var height;
     var hbase;
+    var xpos;
     var hitem;
     var fgcolor;
     var bgcolor;
@@ -2496,16 +2497,20 @@ class MenuWindow : ChildWindow
         self.y = y;
         var items = menu.items;
         int nitems = elements(items);
-        int hitem = menu.font.getHeight();
-        int hbase = menu.font.getAscent() + 1;
+        var font = menu.font;
+        int ascent = font.getAscent();
+        int hitem = ascent + font.getDescent();
+        int hbase = ascent + 1;
         int height = hitem * nitems + 2;
         int width = 0;
         for (var item in menu.items) {
-            int iwidth = menu.font.getTextWidth(display, item.name);
+            int iwidth = font.getTextWidth(display, item.name);
             if (iwidth > width)
                 width = iwidth;
         }
-        width = width + 12;
+        int mwidth = font.getTextWidth(display, "M");
+        self.xpos = (mwidth + 1) / 2;
+        width = width + mwidth * 2;
         self.height = height;
         self.width = width;
         self.hitem = hitem;
@@ -2519,7 +2524,7 @@ class MenuWindow : ChildWindow
         self.current = CURRENT_NONE;
         self.ChildWindow(parent, x + 1, y + 1, width, height,
                 { "background-color" : bgcolor } );
-        self.SetFont(menu.font);
+        self.SetFont(font);
         self.SetForeground(fgcolor);
         self.SetBackground(bgcolor);
         self.OnExpose += function (event) { self.onexpose(event); };
@@ -2539,7 +2544,7 @@ class MenuWindow : ChildWindow
         self.FillRectangle(1, 1 + nitem * hitem, width - 2, hitem);
         self.SetForeground(fgcolor);
         self.SetBackground(bgcolor);
-        self.DrawString(5, hbase + nitem * hitem, items[nitem].name);
+        self.DrawString(self.xpos, hbase + nitem * hitem, items[nitem].name);
     }
     function changecurrent(int newcurrent)
     {
