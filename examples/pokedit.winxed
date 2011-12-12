@@ -1,0 +1,532 @@
+#! winxed
+
+// pokedit - A text editor
+// (C) 2011 Julián Albo "NotFound"
+
+$include "Guitor.winxhead";
+
+$load "Guitor.pbc";
+
+using namespace Guitor;
+using namespace Guitor.Events;
+
+//**************************************************************
+
+// Convenience functions
+
+// Build a event handler function from object and method name.
+// The method is assumed to take a event argument
+
+function eventhandler(object, string methodname)
+{
+    var method = find_method(object, methodname);
+    return function (event)
+        {
+            object.*method(event);
+        };
+}
+
+// Bind a object and a method given by name into a invokable
+
+function method_fun(object, string methodname)
+{
+    var method = find_method(object, methodname);
+    return function (args[slurpy])
+        {
+            return object.*method(args:[flat]);
+        };
+}
+
+// Some common use atoms
+
+const string
+    WM_PROTOCOLS_s     = "WM_PROTOCOLS",
+    WM_DELETE_WINDOW_s = "WM_DELETE_WINDOW",
+    WM_TAKE_FOCUS_s    = "WM_TAKE_FOCUS";
+
+//**************************************************************
+
+class TextWindow : ChildWindow
+{
+    const int MARGINSUP = 4;
+    const int MARGINLEFT = 2;
+    var parent;
+    var textfont;
+    var fgcolor;
+    var bgcolor;
+    var width;
+    var height;
+    var lineheight;
+    var ascent;
+    var text;
+    var headline;
+    var maxlines;
+    var curline;
+    var curpos;
+    var has_focus;
+
+    function TextWindow(parent, int x, int y, int width, int height, font)
+    {
+        self.parent = parent;
+        string text[];
+        self.text = text;
+        self.textfont = font;
+        self.width = width;
+        self.height = height;
+        int ascent = font.getAscent();
+        int descent = font.getDescent();
+        int lineheight = ascent + descent;
+        self.lineheight = lineheight;
+        self.ascent = ascent;
+        self.headline = 0;
+        self.maxlines = (height - MARGINSUP) / lineheight;
+        self.curline = 0;
+        self.curpos = 0;
+        self.has_focus = false;
+        self.ChildWindow(parent, x, y, width, height);
+        self.SetFont(font);
+        self.fgcolor = self.display.ParseColor("black");
+        self.bgcolor = self.display.ParseColor("white");
+        self.SetForeground(self.fgcolor);
+        self.SetBackground(self.bgcolor);
+
+        self.OnDestroy   += eventhandler(self, "ondestroy");
+        self.OnConfigure += eventhandler(self, "onconfigure");
+        self.OnExpose    += eventhandler(self, "onexpose");
+        self.OnFocusIn   += eventhandler(self, "onfocusin");
+        self.OnFocusOut  += eventhandler(self, "onfocusout");
+        self.OnKeyPress  += eventhandler(self, "onkeypress");
+    }
+    function ondestroy(event)
+    {
+        self.text = null;
+        self.parent.close();
+    }
+    function onconfigure(event)
+    {
+        int width = event.width();
+        int height = event.height();
+        self.width =: width;
+        self.height =: height;
+        int lineheight = self.lineheight;
+        self.maxlines = (height - MARGINSUP) / lineheight;
+    }
+    function onexpose(event)
+    {
+        if (self.text != null) {
+            self.drawall();
+            self.cursor();
+        }
+    }
+    function onfocusin(event)
+    {
+        if (self.text == null)
+            return;
+        int detail = event.detail();
+        self.has_focus =: true;
+        self.cursor();
+    }
+    function onfocusout(event)
+    {
+        if (self.text == null)
+            return;
+        int detail = event.detail();
+        self.cursor();
+        self.has_focus =: false;
+    }
+    function onkeypress(event)
+    {
+        var text = self.text;
+        int headline = self.headline;
+        int curline = self.curline;
+        int curpos = self.curpos;
+        int l;
+        string key = event.keyname();
+        self.cursor();
+        switch (key) {
+          case "Prior":
+            if (curline > 0) {
+                l = self.maxlines - 1;
+                curline -= l;
+                if (curline < 0)
+                    curline = 0;
+                self.curline =: curline;
+                if (headline > 0) {
+                    headline -= l;
+                    if (headline < 0)
+                        headline = 0;
+                    self.headline =: headline;
+                    self.drawall();
+                }
+            }
+            break;
+          case "Next":
+            int nlines = elements(text);
+            if (curline < nlines) {
+                l = self.maxlines - 1;
+                curline += l;
+                if (curline > nlines)
+                    curline = nlines;
+                self.curline =: curline;
+                if (headline < nlines) {
+                    headline += l;
+                    if (headline > nlines)
+                        headline = nlines;
+                    self.headline =: headline;
+                    self.drawall();
+                }
+            }
+            break;
+          case "Up":
+            if (curline > 0)
+                self.moveup();
+            break;
+          case "Down":
+            if (curline < elements(text))
+                self.movedown();
+            break;
+          case "Home":
+            curpos = 0;
+            self.curpos =: curpos;
+            if (event.state() & ControlMask) {
+                self.curline =: 0;
+                self.headline =: 0;
+                self.drawall();
+            }
+            break;
+          case "End":
+            if (event.state() & ControlMask) {
+                self.curpos =: 0;
+                l = elements(text);
+                self.curline =: l;
+                l = l - self.maxlines + 1;
+                if (l < 0)
+                    l = 0;
+                if (l > headline) {
+                    self.headline =: l;
+                    self.drawall();
+                }
+            }
+            else {
+                curpos = length(text[curline]);
+                self.curpos =: curpos;
+            }
+            break;
+          case "Left":
+            l = length(text[curline]);
+            if (curpos > l)
+                self.curpos =: curpos = l;
+            if (curpos == 0) {
+                if (curline == 0)
+                    break;
+                self.moveup();
+                curline = self.curline;
+                curpos = length(text[curline]);
+            }
+            else {
+                --curpos;
+            }
+            self.curpos =: curpos;
+            break;
+          case "Right":
+            int maxpos = length(text[curline]);
+            if (++curpos > maxpos) {
+                if (curline >= elements(text))
+                    break;
+                self.movedown();
+                curpos = 0;
+            }
+            self.curpos =: curpos;
+            break;
+          case "BackSpace":
+            l = length(text[curline]);
+            if (curpos > l)
+                self.curpos =: curpos = l;
+            if (curpos > 0) {
+                --curpos;
+                self.curpos =: curpos;
+                string line = text[curline];
+                line = substr(line, 0, curpos) + substr(line, curpos + 1);
+                text[curline] = line;
+                self.drawline(curline);
+            }
+            else if (curline > 0) {
+                string line = text[curline];
+                delete text[curline];
+                --curline;
+                self.curline =: curline;
+                string prevline = text[curline];
+                curpos = length(prevline);
+                line = prevline + line;
+                text[curline] = line;
+                self.curpos =: curpos;
+                self.drawall();
+            }
+            break;
+          case "Delete":
+            l = length(text[curline]);
+            if (curpos > l)
+                self.curpos =: curpos = l;
+            if (curpos < l) {
+                string line = text[curline];
+                line = substr(line, 0, curpos) + substr(line, curpos + 1);
+                text[curline] = line;
+                self.drawline(curline);
+            }
+            else if (curline < elements(text)) {
+                string line = text[curline + 1];
+                delete text[curline + 1];
+                string prevline = text[curline];
+                curpos = length(prevline);
+                line = prevline + line;
+                text[curline] = line;
+                self.curpos =: curpos;
+                self.drawall();
+            }
+            break;
+        }
+        self.cursor();
+    }
+    function moveup()
+    {
+        int curline = self.curline;
+        --curline;
+        self.curline =: curline;
+        int headline = self.headline;
+        if (headline > curline)
+            self.scrollup();
+    }
+    function movedown()
+    {
+        int curline = self.curline;
+        ++curline;
+        self.curline = curline;
+        int height = self.height;
+        int lineheight = self.lineheight;
+        int headline = self.headline;
+        int maxline = headline + (height - MARGINSUP) / lineheight;
+        if (curline >= maxline)
+            self.scrolldown();
+    }
+    function scrollup()
+    {
+        int headline = self.headline;
+        --headline;
+        self.headline =: headline;
+        self.drawall();
+    }
+    function scrolldown()
+    {
+        int headline = self.headline;
+        ++headline;
+        self.headline =: headline;
+        self.drawall();
+    }
+    function cursor()
+    {
+        if (! self.has_focus)
+            return;
+        var text = self.text;
+        if (text == null)
+            return;
+        int curline = self.curline;
+        int curpos = self.curpos;
+        int lineheight = self.lineheight;
+        int ascent = self.ascent;
+        int headline = self.headline;
+        int ypos = (curline - headline) * lineheight + MARGINSUP;
+        string line = text[curline];
+        int xpos = self.getTextxOff(substr(line, 0, curpos)) + MARGINLEFT;
+        self.SetFunction(GXinvert);
+        self.DrawLine(xpos, ypos, xpos, ypos + ascent);
+        self.SetFunction(GXcopy);
+    }
+    function drawall()
+    {
+        int headline = self.headline;
+        int maxlines = self.maxlines;
+        for (int line = headline; line < headline + maxlines; ++line)
+            self.drawline(line);
+    }
+    function drawline(int nline)
+    {
+        var text = self.text;
+        string line;
+        if (nline < elements(text))
+            line = self.text[nline];
+        int headline = self.headline;
+        int lineheight = self.lineheight;
+        int ascent = self.ascent;
+        int ypos = MARGINSUP + lineheight * (nline - headline);
+        self.SetForeground(self.bgcolor);
+        self.FillRectangle(0, ypos, self.width, lineheight);
+        self.SetForeground(self.fgcolor);
+        if (line != null)
+            self.DrawString(MARGINLEFT, ypos + ascent, line);
+    }
+    function set(text)
+    {
+        self.text = text;
+    }
+    function close()
+    {
+        self.text = null;
+        self.Destroy();
+    }
+}
+
+//**************************************************************
+
+class PokeditWindow : TopLevelWindow
+{
+    var width;
+    var height;
+    var menubarh;
+    var menubarw;
+    var textfont;
+    var textwindow;
+    function PokeditWindow(controller)
+    {
+        int width = 800;
+        int height = 600;
+        self.width = width;
+        self.height = height;
+        var bgcolor = controller.display.ParseColor("grey70");
+        self.TopLevelWindow(controller, "Pokedit", 0, 0, width, height,
+                { "background-color" : bgcolor } );
+        var display = self.display;
+        var menufont = display.CreateFont("sans-12");
+        self.textfont = display.CreateFont("mono-10");
+
+        self.SetWMProtocols( [ WM_DELETE_WINDOW_s, WM_TAKE_FOCUS_s ] );
+
+        self.OnDestroy       += eventhandler(self, "ondestroy");
+        self.OnConfigure     += eventhandler(self, "onconfigure");
+        self.OnClientMessage += eventhandler(self, "onclientmessage");
+
+        var menubar = new MenuBar(display, menufont);
+        var filemenu = new Menu(display, menufont);
+        filemenu.push("close", method_fun(self, "close") );
+
+        menubar.push("File", filemenu);
+        int menubarh = menubar.getheight();
+        self.menubarh = menubarh;
+        var menubarw = menubar.activate(self, 0, 0, width);
+        self.menubarw = menubarw;
+
+        var textwindow = new TextWindow(self, 1, menubarh + 1,
+                width - 2, height - menubarh - 2, self.textfont);
+        self.textwindow = textwindow;
+        menubarw.Map();
+        //textwindow.Map();
+    }
+    function ondestroy(event)
+    {
+        self.controller.pokeditclosed(self);
+    }
+    function onconfigure(event)
+    {
+        int width = event.width();
+        int height = event.height();
+        int menubarh = self.menubarh;
+        self.menubarw.ResizeWindow(width, menubarh);
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.ResizeWindow(width - 2, height - menubarh - 2);
+        self.width = width;
+        self.height = height;
+    }
+    function onclientmessage(event)
+    {
+        string type = self.GetAtomName(event.message_type());
+        switch (type) {
+          case WM_PROTOCOLS_s:
+            string protocol = self.GetAtomName(event.message_data(0));
+            switch (protocol) {
+              case WM_DELETE_WINDOW_s:
+                self.controller.pushaction(method_fun(self, "close"));
+                break;
+              case WM_TAKE_FOCUS_s:
+                var textwindow = self.textwindow;
+                if (textwindow != null)
+                    textwindow.SetInputFocus(RevertToParent);
+                else
+                    self.SetInputFocus(RevertToParent);
+                break;
+              default:
+                cry("Warning: unknown WM Protocol: ", protocol);
+            }
+            break;
+          default:
+            cry("Warning: unknown ClientMessage type: ", type);
+        }
+    }
+
+    function openfile(string filename)
+    {
+        var file = open(filename, "r");
+        file.encoding("utf8");
+        string lines[];
+        string line;
+        for (;;) {
+            line = file.readline();
+            if (file.eof())
+                break;
+            line = chomp(line);
+            push(lines, line);
+        }
+        if (line != "") {
+            push(lines, line);
+            cry("Warning: no newline at end of file");
+        }
+        file.close();
+        self.textwindow.set(lines);
+    }
+    function close()
+    {
+        var menubarw = self.menubarw;
+        if (menubarw != null) {
+            self.menubarw = null;
+            menubarw.Destroy();
+        }
+        var textwindow = self.textwindow;
+        if (textwindow != null) {
+            self.textwindow = null;
+            self.controller.pushaction(method_fun(textwindow, "close"));
+        }
+        else {
+            cry("destroy");
+            self.Destroy();
+        }
+    }
+}
+
+//**************************************************************
+
+class PokeditController : Controller
+{
+    function PokeditController()
+    {
+        self.Controller();
+    }
+    function pokeditclosed(window)
+    {
+        self.pushaction(method_fun(self, "Quit"));
+    }
+}
+
+//**************************************************************
+
+function main [main] (args)
+{
+    var controller = new PokeditController();
+    var pokedit = new PokeditWindow(controller);
+    if (elements(args) > 1)
+        pokedit.openfile(args[1]);
+    pokedit.textwindow.Map();
+    pokedit.Map();
+    controller.MainLoop();
+    controller.Close();
+}
+
+// End
