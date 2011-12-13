@@ -1113,8 +1113,10 @@ class GraphicContext
     }
     function DrawPoint(display, drawable, int x, int y)
     {
-        getfun("XDrawPoint")(display.xdisplay, drawable.xdrawable,
-                self.xgc, x, y);
+        int xdrawable = drawable.xdrawable;
+        if (xdrawable != None)
+            getfun("XDrawPoint")(display.xdisplay, xdrawable,
+                    self.xgc, x, y);
     }
     function _DrawLine(display, int xdrawable, int x1, int y1, int x2, int y2)
     {
@@ -1251,7 +1253,7 @@ class Drawable
     {
         int xdrawable = self.xdrawable;
         if (xdrawable != None)
-            self.getgc().DrawPoint(self.display, xdrawable, x, y);
+            self.getgc()._DrawPoint(self.display, xdrawable, x, y);
     }
     function DrawLine(int x1, int y1, int x2, int y2)
     {
