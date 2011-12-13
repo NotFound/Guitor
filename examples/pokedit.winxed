@@ -818,6 +818,7 @@ class TextWindow : ChildWindow
             else
                 self.drawlines(oldcurline, 0);
         }
+        self.parent.updatepos();
         self.cursor();
     }
     function getselectedtext()
