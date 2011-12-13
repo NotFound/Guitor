@@ -240,7 +240,7 @@ class Display
         var fn = getfun("XRootWindow");
         var rootw = new Window;
         rootw.display = self;
-        rootw.xdrawable = fn(self.xdisplay, scrnum);
+        rootw.xdrawable = int(fn(self.xdisplay, scrnum));
         return rootw;
     }
     function CreateSimpleWindow(var parent,
@@ -491,7 +491,7 @@ class FontSet
     var xfont;
     function DrawString(display, drawable, int x, int y, string str)
     {
-        var xdrawable = drawable.xdrawable;
+        int xdrawable = drawable.xdrawable;
         if (xdrawable == None)
             return;
         var pstr = str_to_achar_utf8(str);
@@ -501,7 +501,7 @@ class FontSet
     }
     function DrawImageString(display, drawable, int x, int y, string str)
     {
-        var xdrawable = drawable.xdrawable;
+        int xdrawable = drawable.xdrawable;
         if (xdrawable == None)
             return;
         var pstr = str_to_achar_utf8(str);
@@ -1106,27 +1106,55 @@ class GraphicContext
         getfun("XSetClipMask")(self.display.xdisplay, self.xgc, xpixmap);
     }
 
+    function _DrawPoint(display, int xdrawable, int x, int y)
+    {
+        getfun("XDrawPoint")(display.xdisplay, xdrawable,
+                self.xgc, x, y);
+    }
     function DrawPoint(display, drawable, int x, int y)
     {
         getfun("XDrawPoint")(display.xdisplay, drawable.xdrawable,
                 self.xgc, x, y);
     }
+    function _DrawLine(display, int xdrawable, int x1, int y1, int x2, int y2)
+    {
+        getfun("XDrawLine")(display.xdisplay, xdrawable,
+                self.xgc, x1, y1, x2, y2);
+    }
     function DrawLine(display, drawable, int x1, int y1, int x2, int y2)
     {
-        getfun("XDrawLine")(display.xdisplay, drawable.xdrawable,
-                self.xgc, x1, y1, x2, y2);
+        int xdrawable = drawable.xdrawable;
+        if (xdrawable != None)
+            getfun("XDrawLine")(display.xdisplay, xdrawable,
+                    self.xgc, x1, y1, x2, y2);
+    }
+    function _DrawRectangle(display, int xdrawable,
+            int x, int y, int width, int height)
+    {
+        getfun("XDrawRectangle")(display.xdisplay, xdrawable,
+                self.xgc, x, y, width, height);
     }
     function DrawRectangle(display, drawable,
             int x, int y, int width, int height)
     {
-        getfun("XDrawRectangle")(display.xdisplay, drawable.xdrawable,
+        int xdrawable = drawable.xdrawable;
+        if (xdrawable != None)
+            getfun("XDrawRectangle")(display.xdisplay, xdrawable,
+                    self.xgc, x, y, width, height);
+    }
+    function _FillRectangle(display, int xdrawable,
+            int x, int y, int width, int height)
+    {
+        getfun("XFillRectangle")(display.xdisplay, xdrawable,
                 self.xgc, x, y, width, height);
     }
     function FillRectangle(display, drawable,
             int x, int y, int width, int height)
     {
-        getfun("XFillRectangle")(display.xdisplay, drawable.xdrawable,
-                self.xgc, x, y, width, height);
+        int xdrawable = drawable.xdrawable;
+        if (xdrawable != None)
+            getfun("XFillRectangle")(display.xdisplay, xdrawable,
+                    self.xgc, x, y, width, height);
     }
 
     function DrawString(display, drawable, int x, int y, string str)
@@ -1179,10 +1207,12 @@ class Drawable
             getxftfun("XftDrawDestroy")(xftdraw);
             self.xftdraw = null;
         }
-        self.xdrawable = None;
+        self.xdrawable =: None;
     }
     function getgc()
     {
+        if (self.xdrawable == None)
+            return null;
         var gc = self.gc;
         if (gc == null)
             gc = new GraphicContext(self.display);
@@ -1190,6 +1220,8 @@ class Drawable
     }
     function owngc()
     {
+        if (self.xdrawable == None)
+            return null;
         var gc = self.gc;
         if (gc == null)
             self.gc = gc = new GraphicContext(self.display, self);
@@ -1217,19 +1249,29 @@ class Drawable
     }
     function DrawPoint(int x, int y)
     {
-        self.getgc().DrawPoint(self.display, self, x, y);
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None)
+            self.getgc().DrawPoint(self.display, xdrawable, x, y);
     }
     function DrawLine(int x1, int y1, int x2, int y2)
     {
-        self.getgc().DrawLine(self.display, self, x1, y1, x2, y2);
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None)
+            self.getgc()._DrawLine(self.display, xdrawable, x1, y1, x2, y2);
     }
     function DrawRectangle(int x, int y, int width, int height)
     {
-        self.getgc().DrawRectangle(self.display, self, x, y, width, height);
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None)
+            self.getgc()._DrawRectangle(self.display, xdrawable,
+                    x, y, width, height);
     }
     function FillRectangle(int x, int y, int width, int height)
     {
-        self.getgc().FillRectangle(self.display, self, x, y, width, height);
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None)
+            self.getgc()._FillRectangle(self.display, xdrawable,
+                    x, y, width, height);
     }
     function SetFunction(int func)
     {
@@ -1306,8 +1348,8 @@ class Drawable
     }
     function _getXftDraw()
     {
-        var xdrawable = self.xdrawable;
-        if (xdrawable == null)
+        int xdrawable = self.xdrawable;
+        if (xdrawable == None)
             return null;
         var display = self.display;
         var xftdraw = self.xftdraw;
@@ -1316,6 +1358,7 @@ class Drawable
             var colormap = display.DefaultColormap();
             xftdraw = getxftfun("XftDrawCreate")(display.xdisplay,
                     xdrawable, visual, colormap);
+            self.xftdraw = xftdraw;
         }
         return xftdraw;
     }
@@ -1362,7 +1405,7 @@ class Window : Drawable
     function Destroy()
     {
         __DEBUG__ && cry(__FUNCTION__);
-        var xdrawable = self.xdrawable;
+        int xdrawable = self.xdrawable;
         if (xdrawable != None) {
             self.finalizedrawable();
             self.display._DestroyWindow(xdrawable);
@@ -1412,17 +1455,17 @@ class Window : Drawable
     function Map()
     {
         __DEBUG__ && cry(__FUNCTION__);
-        var xdrawable = self.xdrawable;
-        if (xdrawable == null || xdrawable == None)
+        int xdrawable = self.xdrawable;
+        if (xdrawable == None)
             throw "Can't Map window, not open";
         getfun("XMapWindow")(self.display.xdisplay, xdrawable);
     }
     function Unmap()
     {
         __DEBUG__ && cry(__FUNCTION__);
-        var xdrawable = self.xdrawable;
+        int xdrawable = self.xdrawable;
         // Silently ignore the closed window cases
-        if (xdrawable != null && xdrawable != None)
+        if (xdrawable != None)
             getfun("XUnmapWindow")(self.display.xdisplay, xdrawable);
     }
     function ClearArea(int x, int y, int width, int height, int exposures)
