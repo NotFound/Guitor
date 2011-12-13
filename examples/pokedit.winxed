@@ -507,14 +507,46 @@ class TextWindow : ChildWindow
                     self.InternAtom(UTF8_STRING),
                     XA_PRIMARY, self, event.time());
             break;
+          case 4:
+            if (self.up()) {
+                self.cursor();
+                self.invertselection();
+                self.drawall();
+                self.invertselection();
+                self.cursor();
+            }
+            break;
+          case 5:
+            if (self.down()) {
+                self.cursor();
+                self.invertselection();
+                self.drawall();
+                self.invertselection();
+                self.cursor();
+            }
+            break;
         }
     }
     function onbuttonrelease(event)
     {
+        int pressed = self.pressed;
         self.pressed =: 0;
+        var selected = self.selected;
+        switch (pressed) {
+          case 1:
+            if (selected != null) {
+                if (selected.isempty())
+                    self.selected = null;
+                else
+                    self.SetSelectionOwner(XA_PRIMARY, event.time());
+            }
+            break;
+        }
     }
     function onmotion(event)
     {
+        if (self.text == null)
+            return;
         if (self.pressed == 1)
         {
             self.cursor();
@@ -550,7 +582,6 @@ class TextWindow : ChildWindow
             self.curline =: l;
             self.invertselection();
             self.cursor();
-            self.SetSelectionOwner(XA_PRIMARY, event.time());
         }
     }
     function getline(int y)
@@ -776,6 +807,8 @@ class TextWindow : ChildWindow
     }
     function invertselection()
     {
+        if (self.text == null)
+            return;
         var selected = self.selected;
         if (selected == null || selected.isempty())
             return;
@@ -784,11 +817,16 @@ class TextWindow : ChildWindow
         var text = self.text;
         int headline = self.headline;
         int lineheight = self.lineheight;
-        self.SetFunction(GXinvert);
+        int maxlines = self.maxlines;
+        int firstline = stline;
+        int lastline = headline + maxlines - 1;
 
-        if (stline < headline)
-            stline = headline;
-        for (int nline = stline; nline <= endline; ++nline) {
+        if (firstline < headline)
+            firstline = headline;
+        if (lastline > endline)
+           lastline = endline;
+        self.SetFunction(GXinvert);
+        for (int nline = firstline; nline <= lastline; ++nline) {
             string line = nline >= elements(text) ? "" : self.text[nline];
             int ascent = self.ascent;
             int ypos = MARGINSUP + lineheight * (nline - headline);
@@ -836,6 +874,29 @@ class TextWindow : ChildWindow
         }
         else if (curline < headline) {
             self.headline =: curline;
+            return true;
+        }
+        else
+            return false;
+    }
+    function up()
+    {
+        int headline = self.headline;
+        if (headline > 0) {
+            self.scrollup();
+            return true;
+        }
+        else
+            return false;
+    }
+    function down()
+    {
+        int height = self.height;
+        int lineheight = self.lineheight;
+        int headline = self.headline;
+        int nlines = elements(self.text);
+        if (headline < nlines) {
+            self.scrolldown();
             return true;
         }
         else
@@ -892,11 +953,15 @@ class TextWindow : ChildWindow
         if (text == null)
             return;
         int curline = self.curline;
-        int curpos = self.curpos;
-        int lineheight = self.lineheight;
         int headline = self.headline;
+        int maxlines = self.maxlines;
+        if (curline < headline || curline >= headline + maxlines)
+            return;
+
+        int lineheight = self.lineheight;
         int ypos = (curline - headline) * lineheight + MARGINSUP;
         string line = text[curline];
+        int curpos = self.curpos;
         int xpos = self.getTextxOff(substr(line, 0, curpos)) + MARGINLEFT;
         self.SetFunction(GXinvert);
         self.FillRectangle(xpos, ypos, 2, lineheight);
@@ -906,15 +971,20 @@ class TextWindow : ChildWindow
     {
         int headline = self.headline;
         int maxlines = self.maxlines;
-        for (int line = headline; line < headline + maxlines; ++line)
-            self.drawline(line);
+        int maxline = headline + maxlines - 1;
+        self.drawlines(headline, maxline);
     }
     function drawlines(int from, int to)
     {
         int headline = self.headline;
         int maxlines = self.maxlines;
+        int maxline = headline + maxlines - 1;
+        if (from < headline)
+            from = headline;
         if (to == 0)
-            to = headline + maxlines - 1;
+            to =  maxline;
+        else if (to > maxline)
+            to = maxline;
         for (int line = from; line <= to; ++line)
             self.drawline(line);
     }
