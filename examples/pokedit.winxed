@@ -166,7 +166,7 @@ class StatusWindow : ChildWindow
         self.SetForeground(self.fgcolor);
         self.SetBackground(self.bgcolor);
         self.SetFont(font);
-        self.nwidth = int(self.getTextWidth("000"));
+        self.nwidth = int(self.getTextxOff("MMMM"));
         self.OnExpose           += eventhandler(self, "onexpose");
     }
     function getheight()
