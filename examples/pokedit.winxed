@@ -72,6 +72,17 @@ class SelectedText
     {
         return self.startline, self.startpos, self.endline, self.endpos;
     }
+    function getordered()
+    {
+        int stline = self.startline;
+        int endline = self.endline;
+        int stpos = self.startpos;
+        int endpos = self.endpos;
+        if (stline < endline || (stline == endline && stpos <= endpos))
+            return stline, stpos, endline, endpos;
+        else
+            return endline, endpos, stline, stpos;
+    }
     function isempty()
     {
         return self.startline == self.endline && self.startpos == self.endpos;
@@ -84,6 +95,11 @@ class SelectedText
         else if (line == self.endline && pos == self.endpos)
             checked = 2;
         self.checked =: checked;
+    }
+    function moveend(int line, int pos)
+    {
+        self.endline =: line;
+        self.endpos =: pos;
     }
     function move(int line, int pos)
     {
@@ -110,7 +126,7 @@ class SelectedText
           default:
             cry("WARNING: something wrong with selected text");
         }
-        if (stline > endline || (stline == endline && stpos > endpos)) {
+        if (checked != 0 && (stline > endline || (stline == endline && stpos > endpos))) {
             self.startline =: endline;
             self.endline =: stline;
             self.startpos =: endpos;
@@ -145,6 +161,7 @@ class TextWindow : ChildWindow
     var has_focus;
     var selected;
     var copybuffer;
+    var pressed;
 
     function TextWindow(parent, int x, int y, int width, int height, font)
     {
@@ -164,6 +181,7 @@ class TextWindow : ChildWindow
         self.curline = 0;
         self.curpos = 0;
         self.has_focus = false;
+        self.pressed = false;
         self.ChildWindow(parent, x, y, width, height);
         self.SetFont(font);
         self.fgcolor = self.display.ParseColor("black");
@@ -178,6 +196,8 @@ class TextWindow : ChildWindow
         self.OnFocusOut         += eventhandler(self, "onfocusout");
         self.OnKeyPress         += eventhandler(self, "onkeypress");
         self.OnButtonPress      += eventhandler(self, "onbuttonpress");
+        self.OnButtonRelease    += eventhandler(self, "onbuttonrelease");
+        self.OnMotion           += eventhandler(self, "onmotion");
         self.OnSelectionClear   += eventhandler(self, "onselectionclear");
         self.OnSelectionRequest += eventhandler(self, "onselectionrequest");
         self.OnSelectionNotify  += eventhandler(self, "onselectionnotify");
@@ -276,22 +296,20 @@ class TextWindow : ChildWindow
                 self.moveselected();
             break;
           case "Up":
-            if (curline > 0) {
-                if (! shifted)
-                    self.cancelselected();
+            if (! shifted)
+                self.cancelselected();
+            if (curline > 0)
                 self.moveup();
-                if (shifted)
-                    self.moveselected();
-            }
+            if (shifted)
+                self.moveselected();
             break;
           case "Down":
-            if (curline < elements(text)) {
-                if (! shifted)
-                    self.cancelselected();
+            if (! shifted)
+                self.cancelselected();
+            if (curline < elements(text))
                 self.movedown();
-                if (shifted)
-                    self.moveselected();
-            }
+            if (shifted)
+                self.moveselected();
             break;
           case "Home":
             if (! shifted)
@@ -464,6 +482,24 @@ class TextWindow : ChildWindow
     function onbuttonpress(event)
     {
         switch (event.button()) {
+          case 1:
+            self.cursor();
+            int x = event.x();
+            int y = event.y();
+            var text = self.text;
+            int l = self.getline(y);
+            int pos;
+            if (l < elements(text))
+                pos = self.getpos(x, l);
+            else 
+                pos = 0;
+            self.cancelselected();
+            self.selected = new SelectedText(l, pos);
+            self.pressed =: 1;
+            self.curpos =: pos;
+            self.curline =: l;
+            self.cursor();
+            break;
           case 2:
             // Paste primary selection - unfinished
             var display = self.display;
@@ -472,6 +508,87 @@ class TextWindow : ChildWindow
                     XA_PRIMARY, self, event.time());
             break;
         }
+    }
+    function onbuttonrelease(event)
+    {
+        self.pressed =: 0;
+    }
+    function onmotion(event)
+    {
+        if (self.pressed == 1)
+        {
+            self.cursor();
+            int x = event.x();
+            int y = event.y();
+            var text = self.text;
+            int l = self.getline(y);
+            int pos;
+            if (l < elements(text))
+                pos = self.getpos(x, l);
+            else 
+                pos = 0;
+            self.invertselection();
+            self.selected.moveend(l, pos);
+            int headline = self.headline;
+            int lineheight = self.lineheight;
+            int maxlines = self.maxlines;
+            if (l >= headline + maxlines) {
+                int desp = l - headline - maxlines + 1;
+                int ny = y - desp * lineheight;
+                self.display.WarpPointer(self.xdrawable, x, ny);
+                self.headline = headline + desp;
+                self.drawall();
+            }
+            else if (l < headline) {
+                int desp = headline - l;
+                int ny = y + desp * lineheight;
+                self.display.WarpPointer(self.xdrawable, x, ny);
+                self.headline = headline - desp;
+                self.drawall();
+            }
+            self.curpos =: pos;
+            self.curline =: l;
+            self.invertselection();
+            self.cursor();
+            self.SetSelectionOwner(XA_PRIMARY, event.time());
+        }
+    }
+    function getline(int y)
+    {
+        // Get the text line at the y coordninate
+        var text = self.text;
+        int nlines = elements(text);
+        int headline = self.headline;
+        int lineheight = self.lineheight;
+        int l = (y - MARGINSUP) / lineheight + headline;
+        if (l < 0)
+            l = 0;
+        if (l > nlines)
+            l = nlines;
+        return l;
+    }
+    function getpos(int x, int nline)
+    {
+        // Get the chcaracet position at the x coordinate
+        x -= MARGINLEFT;
+        if (x < 0)
+            return 0;
+        var text = self.text;
+        string line = text[nline];
+        int rp = length(line);
+        if (rp == 0)
+            return 0;
+        if (x > self.getTextxOff(line))
+            return rp;
+        int lp = 0;
+        int mp;
+        while ((mp = (lp + rp) / 2) != lp) {
+            if (x < self.getTextxOff(substr(line, 0, mp)))
+                rp = mp;
+            else
+                lp = mp;
+        }
+        return x < ((self.getTextxOff(substr(line, 0, mp)) + self.getTextxOff(substr(line, 0, mp + 1))) / 2) ? mp : mp + 1;
     }
     function onselectionclear(event)
     {
@@ -598,7 +715,8 @@ class TextWindow : ChildWindow
         var selected = self.selected;
         if (selected == null || selected.isempty())
             return "";
-        :(int stline, int stpos, int endline, int endpos) = selected.get();
+        :(int stline, int stpos, int endline, int endpos) =
+            selected.getordered();
         var text = self.text;
         string firstline = text[stline];
         string result;
@@ -625,7 +743,8 @@ class TextWindow : ChildWindow
         var selected = self.selected;
         if (selected == null || selected.isempty())
             return;
-        :(int stline, int stpos, int endline, int endpos) = selected.get();
+        :(int stline, int stpos, int endline, int endpos) =
+            selected.getordered();
         var text = self.text;
         string firstline = text[stline];
         string lastline = text[endline];
@@ -660,7 +779,8 @@ class TextWindow : ChildWindow
         var selected = self.selected;
         if (selected == null || selected.isempty())
             return;
-        :(int stline, int stpos, int endline, int endpos) = selected.get();
+        :(int stline, int stpos, int endline, int endpos) =
+            selected.getordered();
         var text = self.text;
         int headline = self.headline;
         int lineheight = self.lineheight;
@@ -677,7 +797,7 @@ class TextWindow : ChildWindow
             int x0 = pos0 == 0 ? 0 : self.getTextxOff(substr(line, 0, pos0));
             int x1 = pos1 == 0 ? 0 : self.getTextxOff(substr(line, 0, pos1));
 
-            self.FillRectangle(x0, ypos, x1 - x0, lineheight);
+            self.FillRectangle(x0 + MARGINLEFT, ypos, x1 - x0, lineheight);
         }
         self.SetFunction(GXcopy);
     }
