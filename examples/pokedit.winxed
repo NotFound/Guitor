@@ -53,6 +53,78 @@ const string
 
 //**************************************************************
 
+class SelectedText
+{
+    var startline;
+    var startpos;
+    var endline;
+    var endpos;
+    var checked;
+    function SelectedText(int line, int pos)
+    {
+        self.startline = line;
+        self.endline = line;
+        self.startpos = pos;
+        self.endpos = pos;
+        self.checked = 0;
+    }
+    function get()
+    {
+        return self.startline, self.startpos, self.endline, self.endpos;
+    }
+    function isempty()
+    {
+        return self.startline == self.endline && self.startpos == self.endpos;
+    }
+    function check(line, pos)
+    {
+        int checked = 0;
+        if (line == self.startline && pos == self.startpos)
+            checked = 1;
+        else if (line == self.endline && pos == self.endpos)
+            checked = 2;
+        self.checked =: checked;
+    }
+    function move(int line, int pos)
+    {
+        :(int stline, int stpos, int endline, int endpos) = self.get();
+        int checked;
+        if (self.isempty()) {
+            int stline = self.startline;
+            if (line < stline || (line == stline && pos < stpos))
+                checked = 1;
+            else
+                checked = 2;
+        }
+        else
+            checked = self.checked;
+        switch (checked) {
+          case 1:
+            stline = line;
+            stpos = pos;
+            break;
+          case 2:
+            endline = line;
+            endpos = pos;
+            break;
+          default:
+            cry("WARNING: something wrong with selected text");
+        }
+        if (stline > endline || (stline == endline && stpos > endpos)) {
+            self.startline =: endline;
+            self.endline =: stline;
+            self.startpos =: endpos;
+            self.endpos =: stpos;
+        }
+        else {
+            self.startline =: stline;
+            self.endline =: endline;
+            self.startpos =: stpos;
+            self.endpos =: endpos;
+        }
+    }
+}
+
 class TextWindow : ChildWindow
 {
     const int MARGINSUP = 4;
@@ -71,6 +143,7 @@ class TextWindow : ChildWindow
     var curline;
     var curpos;
     var has_focus;
+    var selected;
 
     function TextWindow(parent, int x, int y, int width, int height, font)
     {
@@ -86,7 +159,7 @@ class TextWindow : ChildWindow
         self.lineheight = lineheight;
         self.ascent = ascent;
         self.headline = 0;
-        self.maxlines = (height - MARGINSUP) / lineheight;
+        self.maxlines = int((height - MARGINSUP) / lineheight);
         self.curline = 0;
         self.curpos = 0;
         self.has_focus = false;
@@ -97,14 +170,15 @@ class TextWindow : ChildWindow
         self.SetForeground(self.fgcolor);
         self.SetBackground(self.bgcolor);
 
-        self.OnDestroy         += eventhandler(self, "ondestroy");
-        self.OnConfigure       += eventhandler(self, "onconfigure");
-        self.OnExpose          += eventhandler(self, "onexpose");
-        self.OnFocusIn         += eventhandler(self, "onfocusin");
-        self.OnFocusOut        += eventhandler(self, "onfocusout");
-        self.OnKeyPress        += eventhandler(self, "onkeypress");
-        self.OnButtonPress     += eventhandler(self, "onbuttonpress");
-        self.OnSelectionNotify += eventhandler(self, "onselectionnotify");
+        self.OnDestroy          += eventhandler(self, "ondestroy");
+        self.OnConfigure        += eventhandler(self, "onconfigure");
+        self.OnExpose           += eventhandler(self, "onexpose");
+        self.OnFocusIn          += eventhandler(self, "onfocusin");
+        self.OnFocusOut         += eventhandler(self, "onfocusout");
+        self.OnKeyPress         += eventhandler(self, "onkeypress");
+        self.OnButtonPress      += eventhandler(self, "onbuttonpress");
+        self.OnSelectionRequest += eventhandler(self, "onselectionrequest");
+        self.OnSelectionNotify  += eventhandler(self, "onselectionnotify");
     }
     function ondestroy(event)
     {
@@ -118,12 +192,13 @@ class TextWindow : ChildWindow
         self.width =: width;
         self.height =: height;
         int lineheight = self.lineheight;
-        self.maxlines = (height - MARGINSUP) / lineheight;
+        self.maxlines =: int((height - MARGINSUP) / lineheight);
     }
     function onexpose(event)
     {
         if (self.text != null) {
             self.drawall();
+            self.invertselection();
             self.cursor();
         }
     }
@@ -152,8 +227,14 @@ class TextWindow : ChildWindow
         int l;
         string key = event.keyname();
         self.cursor();
+
+        int shifted = (event.state() & ShiftMask) != 0;
+        if (shifted)
+            self.checkselected(curline, curpos);
         switch (key) {
           case "Prior":
+            if (! shifted)
+                self.cancelselected();
             if (curline > 0) {
                 l = self.maxlines - 1;
                 curline -= l;
@@ -168,8 +249,12 @@ class TextWindow : ChildWindow
                     self.drawall();
                 }
             }
+            if (shifted)
+                self.moveselected();
             break;
           case "Next":
+            if (! shifted)
+                self.cancelselected();
             int nlines = elements(text);
             if (curline < nlines) {
                 l = self.maxlines - 1;
@@ -185,16 +270,30 @@ class TextWindow : ChildWindow
                     self.drawall();
                 }
             }
+            if (shifted)
+                self.moveselected();
             break;
           case "Up":
-            if (curline > 0)
+            if (curline > 0) {
+                if (! shifted)
+                    self.cancelselected();
                 self.moveup();
+                if (shifted)
+                    self.moveselected();
+            }
             break;
           case "Down":
-            if (curline < elements(text))
+            if (curline < elements(text)) {
+                if (! shifted)
+                    self.cancelselected();
                 self.movedown();
+                if (shifted)
+                    self.moveselected();
+            }
             break;
           case "Home":
+            if (! shifted)
+                self.cancelselected();
             curpos = 0;
             self.curpos =: curpos;
             if (event.state() & ControlMask) {
@@ -202,8 +301,12 @@ class TextWindow : ChildWindow
                 self.headline =: 0;
                 self.drawall();
             }
+            if (shifted)
+                self.moveselected();
             break;
           case "End":
+            if (! shifted)
+                self.cancelselected();
             if (event.state() & ControlMask) {
                 self.curpos =: 0;
                 l = elements(text);
@@ -220,8 +323,12 @@ class TextWindow : ChildWindow
                 curpos = length(text[curline]);
                 self.curpos =: curpos;
             }
+            if (shifted)
+                self.moveselected();
             break;
           case "Left":
+            if (! shifted)
+                self.cancelselected();
             l = length(text[curline]);
             if (curpos > l)
                 self.curpos =: curpos = l;
@@ -236,8 +343,12 @@ class TextWindow : ChildWindow
                 --curpos;
             }
             self.curpos =: curpos;
+            if (shifted)
+                self.moveselected();
             break;
           case "Right":
+            if (! shifted)
+                self.cancelselected();
             int maxpos = length(text[curline]);
             if (++curpos > maxpos) {
                 if (curline >= elements(text))
@@ -246,8 +357,15 @@ class TextWindow : ChildWindow
                 curpos = 0;
             }
             self.curpos =: curpos;
+            if (shifted)
+                self.moveselected();
             break;
           case "BackSpace":
+            if (self.someselected()) {
+                self.deleteselected();
+                self.drawall();
+                break;
+            }
             l = length(text[curline]);
             if (curpos > l)
                 self.curpos =: curpos = l;
@@ -273,6 +391,11 @@ class TextWindow : ChildWindow
             }
             break;
           case "Delete":
+            if (self.someselected()) {
+                self.deleteselected();
+                self.drawall();
+                break;
+            }
             l = length(text[curline]);
             if (curpos > l)
                 self.curpos =: curpos = l;
@@ -298,6 +421,8 @@ class TextWindow : ChildWindow
             string line = text[curline];
             switch (key) {
               case "\r":
+                if (self.someselected())
+                    self.cancelselected();
                 string newline = substr(line, curpos);
                 line = substr(line, 0, curpos);
                 for (int i = elements(text); i > curline; --i)
@@ -308,7 +433,12 @@ class TextWindow : ChildWindow
                 if (! self.movedown())
                     self.drawlines(curline, 0);
                 break;
+              case CTRL_C:
+                self.copyselected(event.time());
+                break;
               case CTRL_V:
+                if (self.someselected())
+                    self.cancelselected();
                 self.paste(event.time());
                 break;
               case "\t":
@@ -318,6 +448,8 @@ class TextWindow : ChildWindow
               default:
                 if (key == null || length(key) == 0 || ord(key) < ord(" "))
                     break;
+                if (self.someselected())
+                    self.cancelselected();
                 line = substr(line, 0, curpos) + key + substr(line, curpos);
                 curpos += length(key);
                 text[curline] = line;
@@ -338,6 +470,53 @@ class TextWindow : ChildWindow
                     XA_PRIMARY, self, event.time());
             break;
         }
+    }
+    function onselectionrequest(event)
+    {
+        int requestor = event.requestor();
+        int selection = event.selection();
+        int target = event.target();
+        int property = event.property();
+        var display = self.display;
+
+        string targetname = self.GetAtomName(target);
+        int typeutf8 = self.InternAtom("UTF8_STRING");
+        // Request for supported types: answer only utf8 text.
+        if (targetname == "TARGETS") {
+            display.ChangePropertyInt32(requestor,
+                    property, target, PropModeReplace, typeutf8);
+        }
+        else if (target == typeutf8 || target == XA_STRING) {
+            // Request for text: fine, do it.
+            string textsel = self.getselectedtext();
+            // Some clients can request STRING without checking.
+            // Try to transcode in that case.
+            if (target == XA_STRING) {
+                try {
+                    textsel = trans_encoding(textsel, "iso-8859-1");
+                    display.ChangePropertyStringIso(requestor,
+                            property, target, PropModeReplace, textsel);
+                }
+                catch () { }
+            }
+            else
+                display.ChangePropertyString(requestor,
+                        property, target, PropModeReplace, textsel);
+        }
+        else
+            return;
+
+        var notify = new Event(SelectionNotify);
+        // No much support for creating events yet, use the
+        // raw StructView for a now.
+        var data = notify.eventdata;
+        var view = notify.getview();
+        view[data, 4] = requestor;
+        view[data, 5] = selection;
+        view[data, 6] = target;
+        view[data, 7] = property;
+        view[data, 8] = event.time();
+        display.SendEvent(requestor, false, 0, notify);
     }
     function onselectionnotify(event)
     {
@@ -404,11 +583,111 @@ class TextWindow : ChildWindow
         }
         self.cursor();
     }
+    function getselectedtext()
+    {
+        var selected = self.selected;
+        if (selected == null || selected.isempty())
+            return "";
+        :(int stline, int stpos, int endline, int endpos) = selected.get();
+        var text = self.text;
+        string firstline = text[stline];
+        string result;
+        if (stline == endline)
+             result = substr(firstline, stpos, endpos - stpos);
+        else {
+             result = substr(firstline, stpos);
+             for (int l = stline + 1; l < endline; ++l) {
+                 result += "\n";
+                 result += string(text[l]);
+             }
+             result += "\n";
+             result += substr(text[endline], 0, endpos);
+        }
+        return result;
+    }
+    function someselected()
+    {
+        var selected = self.selected;
+        return selected != null && ! selected.isempty();
+    }
+    function deleteselected()
+    {
+        var selected = self.selected;
+        if (selected == null || selected.isempty())
+            return;
+        :(int stline, int stpos, int endline, int endpos) = selected.get();
+        var text = self.text;
+        string firstline = text[stline];
+        string lastline = text[endline];
+        string line = substr(firstline, 0, stpos) + substr(lastline, endpos);
+        text[stline] = line;
+        for (int l = stline + 1; l < endline; ++l)
+            delete text[stline + l];
+        self.selected = null;
+        self.curline =: stline;
+        self.curpos =: stpos;
+        self.adjust();
+    }
+    function cancelselected()
+    {
+        var selected = self.selected;
+        if (selected != null) {
+            self.invertselection();
+            self.selected = null;
+        }
+    }
+    function checkselected(int line, int pos)
+    {
+        var selected = self.selected;
+        if (selected == null)
+            self.selected = selected = new SelectedText(line, pos);
+        else
+            self.invertselection();
+        selected.check(line, pos);
+    }
+    function invertselection()
+    {
+        var selected = self.selected;
+        if (selected == null || selected.isempty())
+            return;
+        :(int stline, int stpos, int endline, int endpos) = selected.get();
+        var text = self.text;
+        int headline = self.headline;
+        int lineheight = self.lineheight;
+        self.SetFunction(GXinvert);
+
+        if (stline < headline)
+            stline = headline;
+        for (int nline = stline; nline <= endline; ++nline) {
+            string line = nline >= elements(text) ? "" : self.text[nline];
+            int ascent = self.ascent;
+            int ypos = MARGINSUP + lineheight * (nline - headline);
+            int pos0 = nline == stline ? stpos : 0;
+            int pos1 = nline == endline ? endpos : length(line);
+            int x0 = pos0 == 0 ? 0 : self.getTextxOff(substr(line, 0, pos0));
+            int x1 = pos1 == 0 ? 0 : self.getTextxOff(substr(line, 0, pos1));
+
+            self.FillRectangle(x0, ypos, x1 - x0, lineheight);
+        }
+        self.SetFunction(GXcopy);
+    }
+    function moveselected()
+    {
+        var selected = self.selected;
+        if (selected != null) {
+            selected.move(self.curline, self.curpos);
+            self.invertselection();
+        }
+    }
     function paste(int time)
     {
         int clipboard = self.InternAtom(CLIPBOARD);
         self.display.ConvertSelection(clipboard, self.InternAtom(UTF8_STRING),
                 clipboard, self, time);
+    }
+    function copyselected(int time)
+    {
+        self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
     }
     function adjust()
     {
@@ -420,6 +699,10 @@ class TextWindow : ChildWindow
         int curline = self.curline;
         if (curline >= lastline) {
             self.headline =: curline - maxlines + 1;
+            return true;
+        }
+        else if (curline < headline) {
+            self.headline =: curline;
             return true;
         }
         else
@@ -562,6 +845,7 @@ class PokeditWindow : TopLevelWindow
         var filemenu = new Menu(display, menufont);
         filemenu.push("close", method_fun(self, "close") );
         var editmenu = new Menu(display, menufont);
+        editmenu.push("copy", method_fun(self, "copy") );
         editmenu.push("paste", method_fun(self, "paste") );
 
         menubar.push("File", filemenu);
@@ -657,6 +941,12 @@ class PokeditWindow : TopLevelWindow
         }
         else
             self.Destroy();
+    }
+    function copy()
+    {
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.copyselected(CurrentTime);
     }
     function paste()
     {
