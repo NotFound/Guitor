@@ -141,6 +141,71 @@ class SelectedText
     }
 }
 
+//**************************************************************
+
+class AlertWindow : TopLevelWindow
+{
+    var text;
+    var ascent;
+    var lineheight;
+    var height;
+    var marginleft;
+    function AlertWindow(parent, string message)
+    {
+        var controller = parent.controller;
+        var display = controller.display;
+        var text = split("\n", message);
+        self.text = text;
+        var font = display.CreateFont("sans-12");
+        int ascent = font.getAscent();
+        int lineheight = ascent + font.getDescent();
+        int height = lineheight * elements(text);
+        int width = 0;
+        for (int i = 0, n = elements(text); i < n; ++i) {
+            int w = font.getTextxOff(display, text[i]);
+            if (w > width)
+                width = w;
+        }
+        width += font.getTextxOff(display, "MMMM");
+        self.marginleft = int(font.getTextxOff(display, "MM"));
+        self.ascent = ascent;
+        self.lineheight = lineheight;
+        self.height = height;
+        self.TopLevelWindow(parent.controller,
+                "Pokedit alert", 0, 0, width, height + lineheight * 3);
+        var fgcolor = parent.display.ParseColor("black");
+        self.SetForeground(fgcolor);
+        var bgcolor = parent.display.ParseColor("white");
+        self.SetBackground(bgcolor);
+        var button = new TextButton(self, 0, 0, 0, 0, "Ok", font);
+        int bwidth = button.getwidth();
+        button.OnClick += function () { self.Destroy(); };
+        button.MoveWindow((width - bwidth) / 2, height + lineheight);
+        button.Map();
+
+        self.SetFont(font);
+        self.SetWMProtocols([ WM_DELETE_WINDOW_s ]);
+        self.OnClientMessage += eventhandler(self, "onclientmessage");
+        self.OnExpose        += eventhandler(self, "onexpose");
+        self.SetTransientFor(parent);
+    }
+    function onclientmessage(event)
+    {
+        self.Destroy();
+    }
+    function onexpose(event)
+    {
+        var text = self.text;
+        int ascent = self.ascent;
+        int lineheight = self.lineheight;
+        int marginleft = self.marginleft;
+        for (int i = 0, n = elements(text); i < n; ++i)
+            self.DrawImageString(marginleft, i * lineheight + ascent, text[i]);
+    }
+}
+
+//**************************************************************
+
 class StatusWindow : ChildWindow
 {
     var parent;
@@ -192,6 +257,8 @@ class StatusWindow : ChildWindow
         self.DrawString(nwidth * 2, ascent, curline);
     }
 }
+
+//**************************************************************
 
 class TextWindow : ChildWindow
 {
@@ -937,9 +1004,13 @@ class TextWindow : ChildWindow
     }
     function copyselected(int time)
     {
-        string text = self.getselectedtext();
-        self.copybuffer = text;
-        self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
+        if (self.selected == null)
+            self.parent.alert("Nothing to copy");
+        else {
+            string text = self.getselectedtext();
+            self.copybuffer = text;
+            self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
+        }
     }
     function checkxoff()
     {
@@ -1133,6 +1204,7 @@ class PokeditWindow : TopLevelWindow
     var statusfont;
     var textwindow;
     var statuswindow;
+    var filename;
     function PokeditWindow(controller)
     {
         int width = 800;
@@ -1155,6 +1227,7 @@ class PokeditWindow : TopLevelWindow
 
         var menubar = new MenuBar(display, menufont);
         var filemenu = new Menu(display, menufont);
+        filemenu.push("save", method_fun(self, "save") );
         filemenu.push("close", method_fun(self, "close") );
         var editmenu = new Menu(display, menufont);
         editmenu.push("copy", method_fun(self, "copy") );
@@ -1255,7 +1328,35 @@ class PokeditWindow : TopLevelWindow
             cry("Warning: no newline at end of file");
         }
         file.close();
+        self.filename = filename;
         self.textwindow.set(lines);
+    }
+    function save()
+    {
+        var filename = self.filename;
+        if (filename == null)
+            self.alert("save: no filename\n'Save as' not implemented yet");
+        else {
+            var text = self.textwindow.text;
+            string sfile = filename;
+            try {
+                var handle = open(sfile, "w");
+                handle.encoding("utf8");
+                handle.print(join("\n", text));
+                // Check for newline at end of file:
+                // avoid adding spurious newllines or leaving non terminated
+                // lines at end.
+                string last = text[-1];
+                if (length(last) != 0)
+                    handle.print("\n");
+                handle.close();
+                self.alert("Saved:\nFilename: '" + sfile + "'");
+            }
+            catch (e) {
+                self.alert("Error saving file '" + sfile + "':\n" +
+                        string(e["message"]));
+            }
+        }
     }
     function close()
     {
@@ -1308,6 +1409,11 @@ class PokeditWindow : TopLevelWindow
         var textwindow = self.textwindow;
         if (textwindow != null)
             textwindow.paste(CurrentTime);
+    }
+    function alert(string message)
+    {
+        var alertw = new AlertWindow(self, message);
+        alertw.Map();
     }
 }
 
