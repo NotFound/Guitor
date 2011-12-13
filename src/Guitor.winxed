@@ -1575,7 +1575,7 @@ class Window : Drawable
         return result;
     }
 
-    function SetSelectionOwner(int selection, window, int time)
+    function SetSelectionOwner(int selection, int time)
     {
         self.display._SetSelectionOwner(selection, self.xdrawable, time);
     }
