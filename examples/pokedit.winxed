@@ -246,8 +246,8 @@ class StatusWindow : ChildWindow
     function updatepos()
     {
         var tw = self.parent.textwindow;
-        int curpos = tw.curpos;
-        int curline = tw.curline;
+        int curpos = tw.curpos + 1;
+        int curline = tw.curline + 1;
         int nwidth = self.nwidth;
         int ascent = self.ascent;
         int descent = self.descent;
