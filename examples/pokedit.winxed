@@ -141,6 +141,58 @@ class SelectedText
     }
 }
 
+class StatusWindow : ChildWindow
+{
+    var parent;
+    var ascent;
+    var descent;
+    var fgcolor;
+    var bgcolor;
+    var height;
+    var nwidth;
+    function StatusWindow(parent, int x, int y, int width, int height, font)
+    {
+        self.parent = parent;
+        self.fgcolor = parent.display.ParseColor("grey50");
+        self.bgcolor = parent.display.ParseColor("grey95");
+        int ascent = font.getAscent();
+        int descent = font.getDescent();
+        height = ascent + descent;
+        self.ascent = ascent;
+        self.descent = descent;
+        self.height = height;
+        self.ChildWindow(parent, x, y, width, height,
+                { "background-color": self.bgcolor } );
+        self.SetForeground(self.fgcolor);
+        self.SetBackground(self.bgcolor);
+        self.SetFont(font);
+        self.nwidth = int(self.getTextWidth("000"));
+        self.OnExpose           += eventhandler(self, "onexpose");
+    }
+    function getheight()
+    {
+        return int(self.height);
+    }
+    function onexpose(event)
+    {
+        self.updatepos();
+    }
+    function updatepos()
+    {
+        var tw = self.parent.textwindow;
+        int curpos = tw.curpos;
+        int curline = tw.curline;
+        int nwidth = self.nwidth;
+        int ascent = self.ascent;
+        int descent = self.descent;
+        self.SetForeground(self.bgcolor);
+        self.FillRectangle(0, 0, nwidth * 3, ascent + descent);
+        self.SetForeground(self.fgcolor);
+        self.DrawString(0, ascent, curpos);
+        self.DrawString(nwidth * 2, ascent, curline);
+    }
+}
+
 class TextWindow : ChildWindow
 {
     const int MARGINSUP = 4;
@@ -470,6 +522,9 @@ class TextWindow : ChildWindow
                 break;
               case "\t":
                 // Cheap trick
+                l = length(text[curline]);
+                if (curpos > l)
+                    curpos = l;
                 l = 8 - (curpos % 8);
                 key = " " * l;
               default:
@@ -477,6 +532,9 @@ class TextWindow : ChildWindow
                     break;
                 if (self.someselected())
                     self.cancelselected();
+                l = length(text[curline]);
+                if (curpos > l)
+                    curpos = l;
                 line = substr(line, 0, curpos) + key + substr(line, curpos);
                 curpos += length(key);
                 text[curline] = line;
@@ -488,6 +546,7 @@ class TextWindow : ChildWindow
             self.drawall();
         if (shifted)
             self.moveselected();
+        self.parent.updatepos();
         self.cursor();
     }
     function onbuttonpress(event)
@@ -716,13 +775,19 @@ class TextWindow : ChildWindow
         int curpos = self.curpos;
         var text = self.text;
         string line = text[curline];
+        int l = length(line);
+        if (curpos > l)
+            curpos = l;
         int pos = indexof(pasted, "\n");
         if (pos < 0) {
             line = substr(line, 0, curpos) + pasted + substr(line, curpos);
             curpos += length(pasted);
             text[curline] = line;
             self.curpos =: curpos;
-            self.drawline(curline);
+            if (self.checkxoff())
+                self.drawall();
+            else
+                self.drawline(curline);
         }
         else {
             int fpos = pos;
@@ -735,8 +800,9 @@ class TextWindow : ChildWindow
             }
             int nplines = elements(plines);
             string firstline = substr(line, 0, curpos) + substr(pasted, 0, fpos);
-            string lastline = substr(pasted, pos + 1) + substr(line, curpos);
-            self.curpos = lenpasted - pos - 1;
+            string lastline = substr(pasted, pos + 1);
+            self.curpos =: length(lastline);
+            lastline += substr(line, curpos);
             for (int i = elements(text); i > curline; --i)
                 text[i + nplines + 1] = text[i];
             for (int i = 0; i < nplines; ++i)
@@ -745,7 +811,7 @@ class TextWindow : ChildWindow
             text[curline + nplines + 1] = lastline;
             int oldcurline = curline;
             self.curline =: curline + nplines + 1;
-            if (self.adjust())
+            if (self.adjust() || self.checkxoff())
                 self.drawall();
             else
                 self.drawlines(oldcurline, 0);
@@ -884,15 +950,12 @@ class TextWindow : ChildWindow
         string line = text[curline];
         int xpos = self.getTextxOff(substr(line, 0, curpos));
         if (xpos >= width - xoff) {
-            //cry("RIGHT OUT");
             int chunk = (width - MARGINLEFT) / 3;
             xoff = MARGINLEFT - (int(xpos/ chunk) - 1) * chunk;
             self.xoff =: xoff;
             return true;
         }
-        //cry(xpos, " ", xoff);
         if (xpos + xoff < 0) {
-            //cry("LEFT OUT");
             int chunk = (width - MARGINLEFT) / 3;
             xoff = MARGINLEFT - int(xpos/ chunk) * chunk;
             self.xoff =: xoff;
@@ -1064,7 +1127,9 @@ class PokeditWindow : TopLevelWindow
     var menubarh;
     var menubarw;
     var textfont;
+    var statusfont;
     var textwindow;
+    var statuswindow;
     function PokeditWindow(controller)
     {
         int width = 800;
@@ -1077,6 +1142,7 @@ class PokeditWindow : TopLevelWindow
         var display = self.display;
         var menufont = display.CreateFont("sans-12");
         self.textfont = display.CreateFont("mono-10");
+        self.statusfont = display.CreateFont("mono-10");
 
         self.SetWMProtocols( [ WM_DELETE_WINDOW_s, WM_TAKE_FOCUS_s ] );
 
@@ -1090,36 +1156,57 @@ class PokeditWindow : TopLevelWindow
         var editmenu = new Menu(display, menufont);
         editmenu.push("copy", method_fun(self, "copy") );
         editmenu.push("paste", method_fun(self, "paste") );
+        var viewmenu = new Menu(display, menufont);
+        viewmenu.push("status", method_fun(self, "togglestatus") );
 
         menubar.push("File", filemenu);
         menubar.push("Edit", editmenu);
+        menubar.push("View", viewmenu);
         int menubarh = menubar.getheight();
         self.menubarh = menubarh;
         var menubarw = menubar.activate(self, 0, 0, width);
         self.menubarw = menubarw;
 
+        var statuswindow = new StatusWindow(self, 1, height - 24 - 1,  width - 2, 24, self.statusfont);
+        self.statuswindow = statuswindow;
+
         var textwindow = new TextWindow(self, 1, menubarh + 1,
-                width - 2, height - menubarh - 2, self.textfont);
+                width - 2, height - menubarh - 2 - 24 - 1, self.textfont);
         self.textwindow = textwindow;
+        self.configuresubwindows();
         menubarw.Map();
-        //textwindow.Map();
+    }
+    function configuresubwindows()
+    {
+        int width = self.width;
+        int height = self.height;
+        int menubarh = self.menubarh;
+        self.menubarw.ResizeWindow(width, menubarh);
+        int textheight = height - menubarh - 2;
+        var statuswindow = self.statuswindow;
+        if (statuswindow != null) {
+            int stheight = statuswindow.getheight();
+            textheight -= stheight + 1;
+            statuswindow.MoveResizeWindow(1, textheight + menubarh + 2, width - 2, stheight);
+        }
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.ResizeWindow(width - 2, textheight);
     }
     function onconfigure(event)
     {
         int width = event.width();
         int height = event.height();
-        int menubarh = self.menubarh;
-        self.menubarw.ResizeWindow(width, menubarh);
-        var textwindow = self.textwindow;
-        if (textwindow != null)
-            textwindow.ResizeWindow(width - 2, height - menubarh - 2);
         self.width = width;
         self.height = height;
+        self.configuresubwindows();
     }
     function onmap(event)
     {
         if (self.textwindow != null)
             self.textwindow.Map();
+        if (self.statuswindow != null)
+            self.statuswindow.Map();
     }
     function onclientmessage(event)
     {
@@ -1184,6 +1271,28 @@ class PokeditWindow : TopLevelWindow
         }
         else
             self.Destroy();
+    }
+    function togglestatus()
+    {
+        var statuswindow = self.statuswindow;
+        if (statuswindow == null) {
+            statuswindow = new StatusWindow(self, 1, 1,  1, 1, self.statusfont);
+            self.statuswindow = statuswindow;
+        }
+        else {
+            self.statuswindow = null;
+            statuswindow.Destroy();
+            statuswindow = null;
+        }
+        self.configuresubwindows();
+        if (statuswindow != null)
+            statuswindow.Map();
+    }
+    function updatepos()
+    {
+        var statuswindow = self.statuswindow;
+        if (statuswindow != null)
+            statuswindow.updatepos();
     }
     function copy()
     {
