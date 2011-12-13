@@ -49,7 +49,8 @@ const string
 // Special keys
 const string 
     CTRL_C = "\x{3}",
-    CTRL_V = "\x{16}";
+    CTRL_V = "\x{16}",
+    CTRL_X = "\x{18}";
 
 //**************************************************************
 
@@ -582,6 +583,9 @@ class TextWindow : ChildWindow
               case CTRL_C:
                 self.copyselected(event.time());
                 break;
+              case CTRL_X:
+                self.cutselected(event.time());
+                return;
               case CTRL_V:
                 if (self.someselected())
                     self.cancelselected();
@@ -1002,6 +1006,22 @@ class TextWindow : ChildWindow
         self.display.ConvertSelection(clipboard, self.InternAtom(UTF8_STRING),
                 clipboard, self, time);
     }
+    function cutselected(int time)
+    {
+        if (self.selected == null)
+            self.parent.alert("Nothing to cut");
+        else {
+            self.cursor();
+            self.invertselection();
+            string text = self.getselectedtext();
+            self.copybuffer = text;
+            self.deleteselected();
+            self.drawall();
+            self.parent.updatepos();
+            self.cursor();
+            self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
+        }
+    }
     function copyselected(int time)
     {
         if (self.selected == null)
@@ -1230,6 +1250,7 @@ class PokeditWindow : TopLevelWindow
         filemenu.push("save", method_fun(self, "save") );
         filemenu.push("close", method_fun(self, "close") );
         var editmenu = new Menu(display, menufont);
+        editmenu.push("cut", method_fun(self, "cut") );
         editmenu.push("copy", method_fun(self, "copy") );
         editmenu.push("paste", method_fun(self, "paste") );
         var viewmenu = new Menu(display, menufont);
@@ -1397,6 +1418,12 @@ class PokeditWindow : TopLevelWindow
         var statuswindow = self.statuswindow;
         if (statuswindow != null)
             statuswindow.updatepos();
+    }
+    function cut()
+    {
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.cutselected(CurrentTime);
     }
     function copy()
     {
