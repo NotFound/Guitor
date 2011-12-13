@@ -156,6 +156,7 @@ class TextWindow : ChildWindow
     var text;
     var headline;
     var maxlines;
+    var xoff;
     var curline;
     var curpos;
     var has_focus;
@@ -178,6 +179,7 @@ class TextWindow : ChildWindow
         self.ascent = ascent;
         self.headline = 0;
         self.maxlines = int((height - MARGINSUP) / lineheight);
+        self.xoff = MARGINLEFT;
         self.curline = 0;
         self.curpos = 0;
         self.has_focus = false;
@@ -215,6 +217,10 @@ class TextWindow : ChildWindow
         self.height =: height;
         int lineheight = self.lineheight;
         self.maxlines =: int((height - MARGINSUP) / lineheight);
+        if (self.text != null) {
+            self.adjust();
+            self.checkxoff();
+        }
     }
     function onexpose(event)
     {
@@ -250,6 +256,7 @@ class TextWindow : ChildWindow
         string key = event.keyname();
         self.cursor();
 
+        int drawall = false;
         int shifted = (event.state() & ShiftMask) != 0;
         if (shifted)
             self.checkselected(curline, curpos);
@@ -268,11 +275,9 @@ class TextWindow : ChildWindow
                     if (headline < 0)
                         headline = 0;
                     self.headline =: headline;
-                    self.drawall();
+                    drawall = true;
                 }
             }
-            if (shifted)
-                self.moveselected();
             break;
           case "Next":
             if (! shifted)
@@ -289,27 +294,27 @@ class TextWindow : ChildWindow
                     if (headline > nlines)
                         headline = nlines;
                     self.headline =: headline;
-                    self.drawall();
+                    drawall = true;
                 }
             }
-            if (shifted)
-                self.moveselected();
             break;
           case "Up":
             if (! shifted)
                 self.cancelselected();
             if (curline > 0)
-                self.moveup();
-            if (shifted)
-                self.moveselected();
+                if (self.moveup())
+                    drawall = true;
+            if (self.checkxoff())
+                drawall = true;
             break;
           case "Down":
             if (! shifted)
                 self.cancelselected();
             if (curline < elements(text))
-                self.movedown();
-            if (shifted)
-                self.moveselected();
+                if (self.movedown())
+                    drawall = true;
+            if (self.checkxoff())
+                drawall = true;
             break;
           case "Home":
             if (! shifted)
@@ -319,10 +324,10 @@ class TextWindow : ChildWindow
             if (event.state() & ControlMask) {
                 self.curline =: 0;
                 self.headline =: 0;
-                self.drawall();
+                drawall = true;
             }
-            if (shifted)
-                self.moveselected();
+            if (self.checkxoff())
+                drawall = true;
             break;
           case "End":
             if (! shifted)
@@ -336,15 +341,15 @@ class TextWindow : ChildWindow
                     l = 0;
                 if (l > headline) {
                     self.headline =: l;
-                    self.drawall();
+                    drawall = true;
                 }
             }
             else {
                 curpos = length(text[curline]);
                 self.curpos =: curpos;
             }
-            if (shifted)
-                self.moveselected();
+            if (self.checkxoff())
+                drawall = true;
             break;
           case "Left":
             if (! shifted)
@@ -355,7 +360,8 @@ class TextWindow : ChildWindow
             if (curpos == 0) {
                 if (curline == 0)
                     break;
-                self.moveup();
+                if (self.moveup())
+                    drawall = true;
                 curline = self.curline;
                 curpos = length(text[curline]);
             }
@@ -363,8 +369,8 @@ class TextWindow : ChildWindow
                 --curpos;
             }
             self.curpos =: curpos;
-            if (shifted)
-                self.moveselected();
+            if (self.checkxoff())
+                drawall = true;
             break;
           case "Right":
             if (! shifted)
@@ -373,17 +379,18 @@ class TextWindow : ChildWindow
             if (++curpos > maxpos) {
                 if (curline >= elements(text))
                     break;
-                self.movedown();
+                if (self.movedown())
+                    drawall = true;
                 curpos = 0;
             }
             self.curpos =: curpos;
-            if (shifted)
-                self.moveselected();
+            if (self.checkxoff())
+                drawall = true;
             break;
           case "BackSpace":
             if (self.someselected()) {
                 self.deleteselected();
-                self.drawall();
+                drawall = true;
                 break;
             }
             l = length(text[curline]);
@@ -407,13 +414,13 @@ class TextWindow : ChildWindow
                 line = prevline + line;
                 text[curline] = line;
                 self.curpos =: curpos;
-                self.drawall();
+                drawall = true;
             }
             break;
           case "Delete":
             if (self.someselected()) {
                 self.deleteselected();
-                self.drawall();
+                drawall = true;
                 break;
             }
             l = length(text[curline]);
@@ -433,7 +440,7 @@ class TextWindow : ChildWindow
                 line = prevline + line;
                 text[curline] = line;
                 self.curpos =: curpos;
-                self.drawall();
+                drawall = true;
             }
             break;
           default:
@@ -477,6 +484,10 @@ class TextWindow : ChildWindow
                 self.drawline(curline);
             }
         }
+        if (drawall)
+            self.drawall();
+        if (shifted)
+            self.moveselected();
         self.cursor();
     }
     function onbuttonpress(event)
@@ -601,7 +612,7 @@ class TextWindow : ChildWindow
     function getpos(int x, int nline)
     {
         // Get the chcaracet position at the x coordinate
-        x -= MARGINLEFT;
+        x -= self.xoff;
         if (x < 0)
             return 0;
         var text = self.text;
@@ -826,6 +837,7 @@ class TextWindow : ChildWindow
         if (lastline > endline)
            lastline = endline;
         self.SetFunction(GXinvert);
+        int xoff = self.xoff;
         for (int nline = firstline; nline <= lastline; ++nline) {
             string line = nline >= elements(text) ? "" : self.text[nline];
             int ascent = self.ascent;
@@ -835,7 +847,7 @@ class TextWindow : ChildWindow
             int x0 = pos0 == 0 ? 0 : self.getTextxOff(substr(line, 0, pos0));
             int x1 = pos1 == 0 ? 0 : self.getTextxOff(substr(line, 0, pos1));
 
-            self.FillRectangle(x0 + MARGINLEFT, ypos, x1 - x0, lineheight);
+            self.FillRectangle(x0 + xoff, ypos, x1 - x0, lineheight);
         }
         self.SetFunction(GXcopy);
     }
@@ -859,6 +871,34 @@ class TextWindow : ChildWindow
         string text = self.getselectedtext();
         self.copybuffer = text;
         self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
+    }
+    function checkxoff()
+    {
+        var text = self.text;
+        if (text == null)
+            return;
+        int curline = self.curline;
+        int curpos = self.curpos;
+        int width = self.width;
+        int xoff = self.xoff;
+        string line = text[curline];
+        int xpos = self.getTextxOff(substr(line, 0, curpos));
+        if (xpos >= width - xoff) {
+            //cry("RIGHT OUT");
+            int chunk = (width - MARGINLEFT) / 3;
+            xoff = MARGINLEFT - (int(xpos/ chunk) - 1) * chunk;
+            self.xoff =: xoff;
+            return true;
+        }
+        //cry(xpos, " ", xoff);
+        if (xpos + xoff < 0) {
+            //cry("LEFT OUT");
+            int chunk = (width - MARGINLEFT) / 3;
+            xoff = MARGINLEFT - int(xpos/ chunk) * chunk;
+            self.xoff =: xoff;
+            return true;
+        }
+        return false;
     }
     function adjust()
     {
@@ -936,14 +976,14 @@ class TextWindow : ChildWindow
         int headline = self.headline;
         --headline;
         self.headline =: headline;
-        self.drawall();
+        //self.drawall();
     }
     function scrolldown()
     {
         int headline = self.headline;
         ++headline;
         self.headline =: headline;
-        self.drawall();
+        //self.drawall();
     }
     function cursor()
     {
@@ -962,7 +1002,7 @@ class TextWindow : ChildWindow
         int ypos = (curline - headline) * lineheight + MARGINSUP;
         string line = text[curline];
         int curpos = self.curpos;
-        int xpos = self.getTextxOff(substr(line, 0, curpos)) + MARGINLEFT;
+        int xpos = self.getTextxOff(substr(line, 0, curpos)) + self.xoff;
         self.SetFunction(GXinvert);
         self.FillRectangle(xpos, ypos, 2, lineheight);
         self.SetFunction(GXcopy);
@@ -1002,7 +1042,7 @@ class TextWindow : ChildWindow
         self.FillRectangle(0, ypos, self.width, lineheight);
         self.SetForeground(self.fgcolor);
         if (line != null)
-            self.DrawString(MARGINLEFT, ypos + ascent, line);
+            self.DrawString(self.xoff, ypos + ascent, line);
     }
     function set(text)
     {
