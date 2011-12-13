@@ -144,6 +144,7 @@ class TextWindow : ChildWindow
     var curpos;
     var has_focus;
     var selected;
+    var copybuffer;
 
     function TextWindow(parent, int x, int y, int width, int height, font)
     {
@@ -177,6 +178,7 @@ class TextWindow : ChildWindow
         self.OnFocusOut         += eventhandler(self, "onfocusout");
         self.OnKeyPress         += eventhandler(self, "onkeypress");
         self.OnButtonPress      += eventhandler(self, "onbuttonpress");
+        self.OnSelectionClear   += eventhandler(self, "onselectionclear");
         self.OnSelectionRequest += eventhandler(self, "onselectionrequest");
         self.OnSelectionNotify  += eventhandler(self, "onselectionnotify");
     }
@@ -471,6 +473,13 @@ class TextWindow : ChildWindow
             break;
         }
     }
+    function onselectionclear(event)
+    {
+        int selection = event.selection();
+        if (selection != XA_PRIMARY)
+            return;
+        self.cancelselected();
+    }
     function onselectionrequest(event)
     {
         int requestor = event.requestor();
@@ -488,7 +497,8 @@ class TextWindow : ChildWindow
         }
         else if (target == typeutf8 || target == XA_STRING) {
             // Request for text: fine, do it.
-            string textsel = self.getselectedtext();
+            var copybuffer = self.copybuffer;
+            string textsel = copybuffer == null ? "" : copybuffer;
             // Some clients can request STRING without checking.
             // Try to transcode in that case.
             if (target == XA_STRING) {
@@ -677,6 +687,7 @@ class TextWindow : ChildWindow
         if (selected != null) {
             selected.move(self.curline, self.curpos);
             self.invertselection();
+            self.SetSelectionOwner(XA_PRIMARY, CurrentTime);
         }
     }
     function paste(int time)
@@ -687,6 +698,8 @@ class TextWindow : ChildWindow
     }
     function copyselected(int time)
     {
+        string text = self.getselectedtext();
+        self.copybuffer = text;
         self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
     }
     function adjust()
