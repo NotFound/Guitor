@@ -2755,6 +2755,7 @@ class MenuBarWindow : ChildWindow
     var itempos;
     var height;
     var active;
+    var curitem;
     var child;
     function MenuBarWindow(parent, int x, int y, int width, menubar)
     {
@@ -2803,6 +2804,17 @@ class MenuBarWindow : ChildWindow
         }
         return -1;
     }
+    function activate(int nitem)
+    {
+        __ASSERT__(nitem >= 0);
+        __ASSERT__(nitem < elements(self.itempos));
+        if (self.child != null)
+            self.child.Destroy();
+        self.curitem = nitem;
+        int x = self.itempos[nitem];
+        var action = self.menubar.items[nitem].action;
+        self.child = action.open(self.parent, x, self.height - 4);
+    }
     function onexpose(event)
     {
         int baseline = self.menubar.font.getAscent() + 2;
@@ -2822,11 +2834,8 @@ class MenuBarWindow : ChildWindow
         int x = event.x();
         int y = event.y();
         int nitem = self.itemAt(x);
-        if (nitem != -1) {
-            int x = self.itempos[nitem];
-            var action = self.menubar.items[nitem].action;
-            self.child = action.open(self.parent, x, self.height - 4);
-        }
+        if (nitem != -1)
+            self.activate(nitem);
     }
     function onbuttonrelease(event)
     {
@@ -2866,8 +2875,16 @@ class MenuBarWindow : ChildWindow
                 child.setcurrent(win_x - child.x, win_y - child.y);
             }
             else {
-                if (child != null)
-                    child.setcurrent(-1, -1);
+                if (child_p == self.getDID()) {
+                    int curitem = self.curitem;
+                    int nitem = self.itemAt(event.x());
+                    if (nitem != -1 && nitem != curitem)
+                        self.activate(nitem);
+                }
+                else {
+                    if (child != null)
+                        child.setcurrent(-1, -1);
+                }
             }
         }
         else {
