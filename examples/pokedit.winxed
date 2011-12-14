@@ -1209,6 +1209,48 @@ class TextWindow : ChildWindow
     {
         self.text = text;
     }
+    function indent()
+    {
+        var selected = self.selected;
+        if (selected == null || selected.isempty())
+            return "";
+        self.cursor();
+        self.invertselection();
+        :(int stline, int stpos, int endline, int endpos) =
+            selected.getordered();
+        var text = self.text;
+        for (int l = stline; l <= endline; ++l) {
+            string line = text[l];
+            if (length(line) > 0) {
+                line = "    " + line;
+                text[l] = line;
+            }
+        }
+        self.drawlines(stline, endline);
+        self.invertselection();
+        self.cursor();
+    }
+    function unindent()
+    {
+        var selected = self.selected;
+        if (selected == null || selected.isempty())
+            return "";
+        self.cursor();
+        self.invertselection();
+        :(int stline, int stpos, int endline, int endpos) =
+            selected.getordered();
+        var text = self.text;
+        for (int l = stline; l <= endline; ++l) {
+            string line = text[l];
+            if (substr(line, 0, 4) == "    ") {
+                line = substr(line, 4);
+                text[l] = line;
+            }
+        }
+        self.drawlines(stline, endline);
+        self.invertselection();
+        self.cursor();
+    }
     function close()
     {
         self.text = null;
@@ -1259,10 +1301,14 @@ class PokeditWindow : TopLevelWindow
         editmenu.push("paste", method_fun(self, "paste") );
         var viewmenu = new Menu(display, menufont);
         viewmenu.push("status", method_fun(self, "togglestatus") );
+        var toolsmenu = new Menu(display, menufont);
+        toolsmenu.push("indent", method_fun(self, "indent") );
+        toolsmenu.push("unindent", method_fun(self, "unindent") );
 
         menubar.push("File", filemenu);
         menubar.push("Edit", editmenu);
         menubar.push("View", viewmenu);
+        menubar.push("Tool", toolsmenu);
         int menubarh = menubar.getheight();
         self.menubarh = menubarh;
         var menubarw = menubar.activate(self, 0, 0, width);
@@ -1441,6 +1487,18 @@ class PokeditWindow : TopLevelWindow
         if (textwindow != null)
             textwindow.paste(CurrentTime);
     }
+    function indent()
+    {
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.indent();
+    }
+    function unindent()
+    {
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.unindent();
+    }
     function alert(string message)
     {
         var alertw = new AlertWindow(self, message);
@@ -1489,3 +1547,6 @@ function main [main] (args)
 }
 
 // End
+
+
+
