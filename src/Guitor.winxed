@@ -1211,6 +1211,16 @@ class Drawable
         }
         self.xdrawable =: None;
     }
+    function getDID()
+    {
+        // Return the X drawable ID, it can be a Window or a Pixmap id.
+        // You may need it to direct interface with Xlib functions,
+        // or use as an opaque ID.
+        // Note that is not an unique ID, the number can be reused
+        // by the X Window system if the resource is closed, or if
+        // there are several displays in use.
+        return int(self.xdrawable);
+    }
     function getgc()
     {
         if (self.xdrawable == None)
@@ -2129,7 +2139,7 @@ class EditBox : ChildWindow
         __DEBUG__ && cry(__FUNCTION__);
         if (self.width == 0)
             return;
-        if (event.window() == self.xdrawable) {
+        if (event.window() == self.getDID()) {
             self.has_focus =: true;
             self.cursor();
         }
@@ -2139,7 +2149,7 @@ class EditBox : ChildWindow
         __DEBUG__ && cry(__FUNCTION__);
         if (self.width == 0)
             return;
-        if (event.window() == self.xdrawable) {
+        if (event.window() == self.getDID()) {
             self.cursor();
             self.has_focus =: false;
         }
@@ -2192,7 +2202,7 @@ class EditBox : ChildWindow
             self.pos =: newpos;
             int desp = self.checkoffset();
             if (desp)
-                self.display.WarpPointer(self.xdrawable, event.x() - desp, event.y());
+                self.display.WarpPointer(self.getDID(), event.x() - desp, event.y());
             self.setselection(self.inipos, newpos, event);
         }
         self.drawall();
@@ -2844,12 +2854,12 @@ class MenuBarWindow : ChildWindow
         var win_y_return = viewint.alloc();
         var n = viewint.alloc();
         int r = getfun("XQueryPointer")(self.display.xdisplay,
-            self.parent.xdrawable, root_return, child_return,
+            self.parent.getDID(), root_return, child_return,
             n, n, win_x_return, win_y_return, n);
         int child_p = viewint[child_return, 0];
         var child = self.child;
         if (r && child_p != None) {
-            int childid = child == null ? None : child.xdrawable;
+            int childid = child == null ? None : child.getDID();
             if (child != null && child_p == childid) {
                 int win_x = viewint[win_x_return, 0];
                 int win_y = viewint[win_y_return, 0];
