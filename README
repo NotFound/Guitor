@@ -5,3 +5,15 @@ Guitor is a parrot module for building GUI using Xlib.
 Use the Makefile or setup winxed
 
 Under development. Tested only with Linux amd64 and i386.
+
+
+To execute the examples without installing:
+
+    winxed -L build/ examples/pizarra.winxed
+
+To execute without installing from other directory.
+
+    wixed -L DIR/build -I DIR ....
+
+"DIR" means the directory WERE you have built Guitor, for example:
+/home/my_user/Guitor
