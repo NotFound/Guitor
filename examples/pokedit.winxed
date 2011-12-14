@@ -517,10 +517,22 @@ class TextWindow : ChildWindow
             if (curpos > l)
                 self.curpos =: curpos = l;
             if (curpos > 0) {
-                --curpos;
-                self.curpos =: curpos;
                 string line = text[curline];
-                line = substr(line, 0, curpos) + substr(line, curpos + 1);
+                if (substr(line, 0, curpos) == " " * curpos) {
+                    if (curpos < 4) {
+                        line = substr(line, curpos);
+                        curpos = 0;
+                    }
+                    else {
+                        line = substr(line, 4);
+                        curpos -= 4;
+                    }
+                }
+                else {
+                    --curpos;
+                    line = substr(line, 0, curpos) + substr(line, curpos + 1);
+                }
+                self.curpos =: curpos;
                 text[curline] = line;
                 self.drawline(curline);
             }
@@ -575,12 +587,17 @@ class TextWindow : ChildWindow
                 if (curpos > l)
                     curpos = l;
                 string newline = substr(line, curpos);
+                int ind;
+                for (ind = 0; ind < curpos && line[ind] == ' '; ++ind)
+                    ;
                 line = substr(line, 0, curpos);
                 for (int i = elements(text); i > curline; --i)
                     text[i] = text[i - 1];
                 text[curline] = line;
+                if (ind)
+                    newline = " " * ind + newline;
                 text[curline + 1] = newline;
-                self.curpos =: 0;
+                self.curpos =: ind;
                 if (! self.movedown())
                     self.drawlines(curline, 0);
                 break;
@@ -599,7 +616,7 @@ class TextWindow : ChildWindow
                 // Cheap trick
                 if (curpos > l)
                     curpos = l;
-                key = " " * (8 - (curpos % 8));
+                key = " " * (4 - (curpos % 4));
               default:
                 self.cancelselected();
                 if (ord(key) < ord(" "))
