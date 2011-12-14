@@ -712,14 +712,14 @@ class TextWindow : ChildWindow
             if (l >= headline + maxlines) {
                 int desp = l - headline - maxlines + 1;
                 int ny = y - desp * lineheight;
-                self.display.WarpPointer(self.xdrawable, x, ny);
+                self.display.WarpPointer(self.getDID(), x, ny);
                 self.headline = headline + desp;
                 self.drawall();
             }
             else if (l < headline) {
                 int desp = headline - l;
                 int ny = y + desp * lineheight;
-                self.display.WarpPointer(self.xdrawable, x, ny);
+                self.display.WarpPointer(self.getDID(), x, ny);
                 self.headline = headline - desp;
                 self.drawall();
             }
