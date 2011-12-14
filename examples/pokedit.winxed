@@ -566,10 +566,13 @@ class TextWindow : ChildWindow
           default:
             key = self.LookupString(event);
             string line = text[curline];
+            l = length(line);
             switch (key) {
               case "\r":
                 if (self.someselected())
                     self.cancelselected();
+                if (curpos > l)
+                    curpos = l;
                 string newline = substr(line, curpos);
                 line = substr(line, 0, curpos);
                 for (int i = elements(text); i > curline; --i)
@@ -593,17 +596,14 @@ class TextWindow : ChildWindow
                 break;
               case "\t":
                 // Cheap trick
-                l = length(text[curline]);
                 if (curpos > l)
                     curpos = l;
-                l = 8 - (curpos % 8);
-                key = " " * l;
+                key = " " * (8 - (curpos % 8));
               default:
                 if (key == null || length(key) == 0 || ord(key) < ord(" "))
                     break;
                 if (self.someselected())
                     self.cancelselected();
-                l = length(text[curline]);
                 if (curpos > l)
                     curpos = l;
                 line = substr(line, 0, curpos) + key + substr(line, curpos);
