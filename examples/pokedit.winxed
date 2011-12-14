@@ -127,7 +127,8 @@ class SelectedText
           default:
             cry("WARNING: something wrong with selected text");
         }
-        if (checked != 0 && (stline > endline || (stline == endline && stpos > endpos))) {
+        if (checked != 0 &&
+                (stline > endline || (stline == endline && stpos > endpos))) {
             self.startline =: endline;
             self.endline =: stline;
             self.startpos =: endpos;
@@ -781,7 +782,9 @@ class TextWindow : ChildWindow
             else
                 lp = mp;
         }
-        return x < ((self.getTextxOff(substr(line, 0, mp)) + self.getTextxOff(substr(line, 0, mp + 1))) / 2) ? mp : mp + 1;
+        return x < ((self.getTextxOff(substr(line, 0, mp)) +
+                     self.getTextxOff(substr(line, 0, mp + 1))) / 2) ?
+                     mp : mp + 1;
     }
     function onselectionclear(event)
     {
@@ -891,7 +894,8 @@ class TextWindow : ChildWindow
                 pos = npos;
             }
             int nplines = elements(plines);
-            string firstline = substr(line, 0, curpos) + substr(pasted, 0, fpos);
+            string firstline = substr(line, 0, curpos) +
+                    substr(pasted, 0, fpos);
             string lastline = substr(pasted, pos + 1);
             self.curpos =: length(lastline);
             lastline += substr(line, curpos);
@@ -1329,7 +1333,8 @@ class PokeditWindow : TopLevelWindow
         var menubarw = menubar.activate(self, 0, 0, width);
         self.menubarw = menubarw;
 
-        var statuswindow = new StatusWindow(self, 1, height - 24 - 1,  width - 2, 24, self.statusfont);
+        var statuswindow = new StatusWindow(self, 1, height - 24 - 1, 
+                width - 2, 24, self.statusfont);
         self.statuswindow = statuswindow;
 
         var textwindow = new TextWindow(self, 1, menubarh + 1,
@@ -1349,7 +1354,8 @@ class PokeditWindow : TopLevelWindow
         if (statuswindow != null) {
             int stheight = statuswindow.getheight();
             textheight -= stheight + 1;
-            statuswindow.MoveResizeWindow(1, textheight + menubarh + 2, width - 2, stheight);
+            statuswindow.MoveResizeWindow(1, textheight + menubarh + 2,
+                    width - 2, stheight);
         }
         var textwindow = self.textwindow;
         if (textwindow != null)
@@ -1466,7 +1472,8 @@ class PokeditWindow : TopLevelWindow
     {
         var statuswindow = self.statuswindow;
         if (statuswindow == null) {
-            statuswindow = new StatusWindow(self, 1, 1,  1, 1, self.statusfont);
+            statuswindow = new StatusWindow(self, 1, 1,  1, 1,
+                    self.statusfont);
             self.statuswindow = statuswindow;
         }
         else {
@@ -1562,6 +1569,3 @@ function main [main] (args)
 }
 
 // End
-
-
-
