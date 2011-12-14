@@ -567,7 +567,6 @@ class TextWindow : ChildWindow
             key = self.LookupString(event);
             if (key == null || length(key) == 0)
                  break;
-            self.cancelselected();
             string line = text[curline];
             l = length(line);
             switch (key) {
@@ -603,6 +602,8 @@ class TextWindow : ChildWindow
                     curpos = l;
                 key = " " * (8 - (curpos % 8));
               default:
+                if (self.someselected())
+                    self.cancelselected();
                 if (ord(key) < ord(" "))
                     break;
                 if (self.someselected())
