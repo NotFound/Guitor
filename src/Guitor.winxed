@@ -2880,16 +2880,20 @@ class MenuBarWindow : ChildWindow
                     int nitem = self.itemAt(event.x());
                     if (nitem != -1 && nitem != curitem)
                         self.activate(nitem);
+                    else {
+                        if (child != null)
+                            child.changecurrent(-1);
+                    }
                 }
                 else {
                     if (child != null)
-                        child.setcurrent(-1, -1);
+                        child.changecurrent(-1);
                 }
             }
         }
         else {
             if (child != null)
-                child.setcurrent(-1, -1);
+                child.changecurrent(-1);
         }
     }
 }
