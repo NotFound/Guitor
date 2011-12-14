@@ -571,8 +571,7 @@ class TextWindow : ChildWindow
             l = length(line);
             switch (key) {
               case "\r":
-                if (self.someselected())
-                    self.cancelselected();
+                self.cancelselected();
                 if (curpos > l)
                     curpos = l;
                 string newline = substr(line, curpos);
@@ -602,8 +601,7 @@ class TextWindow : ChildWindow
                     curpos = l;
                 key = " " * (8 - (curpos % 8));
               default:
-                if (self.someselected())
-                    self.cancelselected();
+                self.cancelselected();
                 if (ord(key) < ord(" "))
                     break;
                 if (self.someselected())
