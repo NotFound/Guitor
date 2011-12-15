@@ -797,16 +797,12 @@ class Board : ChildWindow
           case FILLPOLY:
             self.hintline(initx, inity, oldx, oldy);
             var fp = self.line;
-            fp.hint(self);
-            if (fp == null) {
-                fp = new FillPoly(colorspec, initx, inity, oldx, oldy);
-                self.listline.push(fp);
-            }
-            else {
+            if (fp != null) {
+                fp.hint(self);
                 fp.addsegment(oldx - initx, oldy - inity);
                 fp.close();
+                fp.draw(self);
             }
-            fp.draw(self);
             break;
         }
         self.line = null;
