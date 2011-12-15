@@ -1345,11 +1345,15 @@ class Drawable
     }
     function DrawString(int x, int y, string str)
     {
-        self.getgc().DrawString(self.display, self, x, y, str);
+        var gc = self.getgc();
+        if (gc != null)
+            gc.DrawString(self.display, self, x, y, str);
     }
     function DrawImageString(int x, int y, string str)
     {
-        self.getgc().DrawImageString(self.display, self, x, y, str);
+        var gc = self.getgc();
+        if (gc != null)
+            gc.DrawImageString(self.display, self, x, y, str);
     }
     function getTextWidth(string text)
     {
