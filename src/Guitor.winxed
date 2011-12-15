@@ -1979,6 +1979,7 @@ class TextButton : ChildWindow
     var text;
     var font;
     var width;
+    var ascent;
     var height;
     var OnClick;
     function TextButton(parent, int x, int y, int width, int height, string text, font)
@@ -1986,14 +1987,17 @@ class TextButton : ChildWindow
         __DEBUG__ && cry(__FUNCTION__);
         if (font == null)
             font = parent.display.CreateFont("courier-10");
+        int ascent = font.getAscent();
+        int descent = font.getDescent();
         if (height == 0)
-            height = font.getHeight();
+            height = ascent + descent + 4;
         if (width == 0) {
-            width = font.getTextWidth(parent.display, text);
+            width = font.getTextxOff(parent.display, text);
             width += 8;
         }
         self.ChildWindow(parent, x, y, width, height);
         self.width = width;
+        self.ascent = ascent;
         self.height = height;
         self.text = text;
         self.font = font;
@@ -2003,11 +2007,9 @@ class TextButton : ChildWindow
             int width = self.width;
             int height = self.height;
             self.DrawRectangle(0, 0, width - 1, height - 1);
-            var font = self.font;
             string text = self.text;
             int twidth = self.getTextWidth(text);
-            int tx = (width - twidth) / 2;
-            self.DrawImageString(tx, font.getAscent(), text);
+            self.DrawImageString((width - twidth) / 2, self.ascent + 2, text);
         };
         self.OnButtonRelease += function (event)
         {
