@@ -2529,6 +2529,8 @@ class EditBox : ChildWindow
 
 //**************************************************************
 
+const int CURRENT_NONE = -1;
+
 // A barely functional context menu to be used in examples and tests.
 // No keyboard interface, only mouse.
 
@@ -2545,7 +2547,6 @@ class MenuItem
 
 class MenuWindow : ChildWindow
 {
-    const int CURRENT_NONE = -1;
     var menu;
     var x;
     var y;
@@ -2757,6 +2758,7 @@ class MenuBarWindow : ChildWindow
     var active;
     var curitem;
     var child;
+    var grab;
     function MenuBarWindow(parent, int x, int y, int width, menubar)
     {
         self.parent = parent;
@@ -2770,6 +2772,8 @@ class MenuBarWindow : ChildWindow
         if (width <= 0)
             width = menubar.maxWidth();
         self.active = false;
+        self.curitem = CURRENT_NONE;
+        self.grab = false;
         self.ChildWindow(parent, x, y, width, height,
                 { "background-color" : bgcolor } );
         self.SetFont(font);
@@ -2802,9 +2806,25 @@ class MenuBarWindow : ChildWindow
                 return i;
             xpos += w + BARSEP;
         }
-        return -1;
+        return CURRENT_NONE;
     }
-    function activate(int nitem)
+    function querypointer()
+    {
+        var viewint = new ["StructView"]
+                ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
+        var child_return = viewint.alloc();
+        var win_x_return = viewint.alloc();
+        var win_y_return = viewint.alloc();
+        var n = viewint.alloc();
+        int r = getfun("XQueryPointer")(self.display.xdisplay,
+            self.parent.getDID(), n, child_return,
+            n, n, win_x_return, win_y_return, n);
+        return r,
+            int(viewint[child_return, 0]),
+            int(viewint[win_x_return, 0]),
+            int(viewint[win_y_return, 0]);
+    }
+    function setcurrent(int nitem)
     {
         __ASSERT__(nitem >= 0);
         __ASSERT__(nitem < elements(self.itempos));
@@ -2814,6 +2834,32 @@ class MenuBarWindow : ChildWindow
         int x = self.itempos[nitem];
         var action = self.menubar.items[nitem].action;
         self.child = action.open(self.parent, x, self.height - 4);
+    }
+    function deactivate(int time)
+    {
+        var child = self.child;
+        if (child != null) {
+            self.child = null;
+            self.controller.pushaction(function () { child.Destroy(); } );
+        }
+        if (self.grab) {
+            self.UngrabPointer(time);
+            self.grab =: false;
+        }
+        self.active =: false;
+        self.curitem =: CURRENT_NONE;
+    }
+    function grabme(int time)
+    {
+        const int mask = EnterWindowMask | LeaveWindowMask |
+                ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
+        int grab = self.GrabPointer(false, mask,
+                GrabModeAsync, GrabModeAsync, None, None, time);
+        if (grab == 0) {
+            self.grab =: true;
+            self.active =: true;
+        }
+        return grab;
     }
     function onexpose(event)
     {
@@ -2833,67 +2879,76 @@ class MenuBarWindow : ChildWindow
         self.active =: true;
         int x = event.x();
         int y = event.y();
-        int nitem = self.itemAt(x);
-        if (nitem != -1)
-            self.activate(nitem);
+        int curitem = self.curitem;
+
+        :( int r, int child_p, int win_x, int win_y) =
+                self.querypointer();
+        int nitem = (r && child_p == self.getDID()) ?
+            self.itemAt(x) :
+            CURRENT_NONE;
+        if (nitem != CURRENT_NONE && nitem != curitem)
+            self.setcurrent(nitem);
     }
     function onbuttonrelease(event)
     {
+        int time = event.time();
         self.active =: false;
         var child = self.child;
         if (child != null) {
             int current = child.current;
-            var action;
-            if (current >= 0)
-                action = child.menu.items[current].action;
-            self.child = null;
-            self.controller.pushaction(function () { child.Destroy(); } );
-            if (action != null)
+            if (current != CURRENT_NONE) {
+                var action = child.menu.items[current].action;
+                self.deactivate(time);
                 self.controller.pushaction(action);
+            }
+            else {
+               :( int r, int child_p, int win_x, int win_y) =
+                        self.querypointer();
+                int nitem = (r && child_p == self.getDID()) ?
+                        self.itemAt(event.x()) :
+                        CURRENT_NONE;
+                if (nitem != CURRENT_NONE) {
+                    if (! self.grab)
+                        self.grabme(time);
+                }
+                else
+                    self.deactivate(time);
+            }
         }
+        else
+            self.deactivate(time);
     }
     function onmotion(event)
     {
         if (! self.active)
             return;
-        var viewint = new ["StructView"] ( [ DATATYPE_STRUCT, 1, DATATYPE_INT ] );
-        var root_return = viewint.alloc();
-        var child_return = viewint.alloc();
-        var win_x_return = viewint.alloc();
-        var win_y_return = viewint.alloc();
-        var n = viewint.alloc();
-        int r = getfun("XQueryPointer")(self.display.xdisplay,
-            self.parent.getDID(), root_return, child_return,
-            n, n, win_x_return, win_y_return, n);
-        int child_p = viewint[child_return, 0];
+        :( int r, int child_p, int win_x, int win_y) =
+                self.querypointer();
         var child = self.child;
         if (r && child_p != None) {
             int childid = child == null ? None : child.getDID();
-            if (child != null && child_p == childid) {
-                int win_x = viewint[win_x_return, 0];
-                int win_y = viewint[win_y_return, 0];
+            if (child != null && child_p == childid)
                 child.setcurrent(win_x - child.x, win_y - child.y);
-            }
             else {
                 if (child_p == self.getDID()) {
                     int curitem = self.curitem;
                     int nitem = self.itemAt(event.x());
-                    if (nitem != -1 && nitem != curitem)
-                        self.activate(nitem);
+                    if (nitem != CURRENT_NONE && nitem != curitem)
+                        self.setcurrent(nitem);
                     else {
                         if (child != null)
-                            child.changecurrent(-1);
+                            child.changecurrent(CURRENT_NONE);
                     }
                 }
                 else {
                     if (child != null)
-                        child.changecurrent(-1);
+                        child.changecurrent(CURRENT_NONE);
                 }
             }
         }
         else {
             if (child != null)
-                child.changecurrent(-1);
+                child.changecurrent(CURRENT_NONE);
         }
     }
 }
