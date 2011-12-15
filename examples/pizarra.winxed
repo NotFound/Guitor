@@ -605,6 +605,7 @@ class Board : ChildWindow
     var oldx;
     var oldy;
     var colorspec;
+    var hintcolor;
     var menu;
     var grid;
     function Board(parent, int x, int y, int width, int height)
@@ -619,6 +620,7 @@ class Board : ChildWindow
         self.oldx = 0;
         self.oldy = 0;
         self.colorspec = "black";
+        self.hintcolor = self.display.ParseColor("black");
         self.grid = 0;
 
         self.OnExpose        += evhandler(self, "onexpose");
@@ -704,6 +706,7 @@ class Board : ChildWindow
                     l.draw(self);
                     break;
                   case POLY:
+                    self.SetForeground(self.hintcolor);
                     self.DrawLine(initx, inity, oldx, oldy);
                     break;
                   case FILLPOLY:
