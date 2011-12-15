@@ -15,26 +15,18 @@ using namespace Guitor;
 class Piece : ChildWindow
 {
     var puzzle;
-    var foreground;
-    var background;
-    var brightline;
-    var darkline;
     var width;
     var height;
     var label;
     var baseline;
     var x;
-    function Piece(parent, x, y, width, height, string label)
+    function Piece(puzzle, x, y, width, height, string label)
     {
-        self.puzzle = parent;
-        var display = parent.display;
-        self.foreground = display.ParseColor("black");
-        self.background = display.ParseColor("RGB:FF/FF/00");
-        self.brightline = display.ParseColor("RGB:FF/FF/DD");
-        self.darkline = display.ParseColor("RGB:88/55/33");
-        self.ChildWindow(parent, x, y, width, height,
-            { "background-color" : self.background });
-        var font = parent.font;
+        self.puzzle = puzzle;
+        var display = puzzle.display;
+        self.ChildWindow(puzzle, x, y, width, height,
+            { "background-color" : puzzle.background });
+        var font = puzzle.font;
         self.SetFont(font);
         int h = font.getHeight();
         int baseline = (height - h) / 2 + font.getAscent();
@@ -49,22 +41,23 @@ class Piece : ChildWindow
     }
     function onexpose(event)
     {
-        self.SetForeground(self.foreground);
-        self.SetBackground(self.background);
+        var puzzle = self.puzzle;
+        self.SetForeground(puzzle.foreground);
+        self.SetBackground(puzzle.background);
         self.DrawImageString(self.x, self.baseline, self.label);
 
         int w = self.width - 1;
         int h = self.height - 1;
-        self.SetForeground(self.darkline);
+        self.SetForeground(puzzle.darkline);
         self.DrawLine(0,     0,     w,     0);
         self.DrawLine(0,     0,     0,     h);
-        self.SetForeground(self.brightline);
+        self.SetForeground(puzzle.brightline);
         self.DrawLine(1,     1,     w - 1, 1);
         self.DrawLine(1,     1,     1,     h - 1);
-        self.SetForeground(self.darkline);
+        self.SetForeground(puzzle.darkline);
         self.DrawLine(w - 1, 2,     w - 1, h - 1);
         self.DrawLine(2,     h - 1, w - 1, h - 1);
-        self.SetForeground(self.foreground);
+        self.SetForeground(puzzle.foreground);
         self.DrawLine(w,     1,     w,     h);
         self.DrawLine(1,     h,     w,     h);
     }
@@ -87,6 +80,10 @@ class Puzzle : TopLevelWindow
 {
     const int HOR = 7;
     const int VER = 4;
+    var foreground;
+    var background;
+    var brightline;
+    var darkline;
     var menu;
     var x;
     var y;
@@ -113,6 +110,10 @@ class Puzzle : TopLevelWindow
         self.OnDestroy += function (event) { controller.Quit(); };
 
         var display = self.display;
+        self.foreground = display.ParseColor("black");
+        self.background = display.ParseColor("RGB:FF/FF/00");
+        self.brightline = display.ParseColor("RGB:FF/FF/DD");
+        self.darkline = display.ParseColor("RGB:88/55/33");
         var menufont = display.CreateFont("sans-12");
         var menubar = new MenuBar(display, menufont);
         var menufile = new Menu(display, menufont);
