@@ -1158,6 +1158,25 @@ class GraphicContext
             getfun("XFillRectangle")(display.xdisplay, xdrawable,
                     self.xgc, x, y, width, height);
     }
+    function FillPolygon(display, drawable, x, y)
+    {
+        int xdrawable = drawable.xdrawable;
+        if (xdrawable != None) {
+            int n = elements(x);
+            var xpointview = new ["StructView"] ( [ DATATYPE_STRUCT, 2,
+                    DATATYPE_SHORT, DATATYPE_SHORT ] );
+            var points = xpointview.alloc(n);
+            for (int i = 0; i < n; ++i) {
+                int xi = x[i];
+                int yi = y[i];
+                var point = xpointview.array_offs(points, i);
+                xpointview[point, 0] = xi;
+                xpointview[point, 1] = yi;
+            }
+            getfun("XFillPolygon")(display.xdisplay, xdrawable,
+                    self.xgc, points, n, 0, CoordModePrevious);
+        }
+    }
 
     function DrawString(display, drawable, int x, int y, string str)
     {
@@ -1284,6 +1303,10 @@ class Drawable
         if (xdrawable != None)
             self.getgc()._FillRectangle(self.display, xdrawable,
                     x, y, width, height);
+    }
+    function FillPolygon(x, y)
+    {
+        self.getgc().FillPolygon(self.display, self, x, y);
     }
     function SetFunction(int func)
     {

@@ -12,6 +12,11 @@ const int
     LineOnOffDash =  1,
     LineDoubleDash = 2;
 
+// Coord modes
+const int
+    CoordModeOrigin   = 0,
+    CoordModePrevious = 1;
+
 // GC logical function
 const int
     GXClear        = 0x0,

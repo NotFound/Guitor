@@ -664,6 +664,12 @@ function create_function(string funcname)
       case "XFillRectangle":
         sig = "ipipiiii";
         break;
+      case "XDrawLines":
+        sig = "vpippii";
+        break;
+      case "XFillPolygon":
+        sig = "vpippiii";
+        break;
       case "XClearArea":
         sig = "ipiiiiii";
         break;
