@@ -538,14 +538,18 @@ class TextWindow : ChildWindow
                 self.drawline(curline);
             }
             else if (curline > 0) {
-                string line = text[curline];
-                delete text[curline];
+                if (curline < elements(text)) {
+                    string line = text[curline];
+                    delete text[curline];
+                    string prevline = text[curline - 1];
+                    curpos = length(prevline);
+                    line = prevline + line;
+                    text[curline - 1] = line;
+                }
+                else
+                    curpos = length(text[curline - 1]);
                 --curline;
                 self.curline =: curline;
-                string prevline = text[curline];
-                curpos = length(prevline);
-                line = prevline + line;
-                text[curline] = line;
                 self.curpos =: curpos;
                 drawall = true;
             }
