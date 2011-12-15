@@ -145,10 +145,12 @@ class ColorSelector : ChildWindow, BoxedSelector
 class ToolSelector : ChildWindow, BoxedSelector
 {
     var pizarra;
-    var pixmap;
+    var pmline;
+    var pmpoly;
+    var pmfillpoly;
     function ToolSelector(pizarra, int x, int y)
     {
-        self.BoxedSelector(pizarra.display, 2, 2);
+        self.BoxedSelector(pizarra.display, 2, 3);
         self.pizarra = pizarra;
         self.ChildWindow(pizarra, x, y, self.width, self.height);
         self.OnDestroy     += evhandler(self, "ondestroy");
@@ -156,9 +158,9 @@ class ToolSelector : ChildWindow, BoxedSelector
         self.OnButtonPress += evhandler(self, "onbuttonpress");
         self.Map();
         // Ugly icon for hand drawn lines
-        self.pixmap = self.CreatePixmapFromBuffer(<<:
+        self.pmline = self.CreatePixmapFromBuffer(<<:
 /* XPM */
-static char *test[] = {
+static char *line[] = {
 "16 16 2 1",
 " 	c #FFFFFF",
 "+	c #000000",
@@ -181,14 +183,66 @@ static char *test[] = {
 };
 :>>
         );
+        self.pmpoly = self.CreatePixmapFromBuffer(<<:
+/* XPM */
+static char *poly[] = {
+"16 16 2 1",
+" 	c #FFFFFF",
+"+	c #000000",
+"                ",
+"     +          ",
+"     ++         ",
+"     + +        ",
+"     +  +       ",
+"     +   +      ",
+"     +    +     ",
+"     +      +   ",
+"    +        +  ",
+"   +          + ",
+"  +         ++  ",
+" +        ++    ",
+"  +     ++      ",
+"   +  ++        ",
+"    ++          ",
+"                ",
+};
+:>>
+        );
+        self.pmfillpoly = self.CreatePixmapFromBuffer(<<:
+/* XPM */
+static char *fillpoly[] = {
+"16 16 2 1",
+" 	c #FFFFFF",
+"+	c #000000",
+"                ",
+"     +          ",
+"     ++         ",
+"     +++        ",
+"     ++++       ",
+"     +++++      ",
+"     ++++++     ",
+"     ++++++++   ",
+"    ++++++++++  ",
+"   ++++++++++++ ",
+"  ++++++++++++  ",
+" +++++++++++    ",
+"  ++++++++      ",
+"   +++++        ",
+"    ++          ",
+"                ",
+};
+:>>
+        );
     }
     function ondestroy(event)
     {
-        var pixmap = self.pixmap;
-        if (pixmap != null) {
-            pixmap.Free();
-            self.pixmap = null;
-        }
+        for (var pixmap in
+               [ self.pmline, self.pmpoly, self.pmfillpoly ] )
+            if (pixmap != null)
+                pixmap.Free();
+        self.pmline = null;
+        self.pmpoly = null;
+        self.pmfillpoly = null;
     }
     function onexpose(event)
     {
@@ -198,14 +252,14 @@ static char *test[] = {
         int boxheight = self.boxheight;
         self.SetForeground("black");
         self.DrawRectangle(0, 0, width - 1, height - 1);
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < 3; ++i)
             for (int j = 0; j < 2; ++j) {
                 int x = 3 + j * (boxwidth + 2);
                 int y = 3 + i * (boxheight + 2);
                 self.DrawRectangle(x, y, boxwidth - 1, boxheight - 1);
                 switch (i * 2 + j) {
                   case 0:
-                    self.CopyArea(self.pixmap, 0, 0, 16, 16, x + 1, y + 1);
+                    self.CopyArea(self.pmline, 0, 0, 16, 16, x + 1, y + 1);
                     break;
                   case 1:
                     self.DrawLine(x + 2, y + 3, x + 10, y + 14);
@@ -215,6 +269,12 @@ static char *test[] = {
                     break;
                   case 3:
                     self.FillRectangle(x + 3, y + 3, boxwidth - 6, boxheight - 6);
+                    break;
+                  case 4:
+                    self.CopyArea(self.pmpoly, 0, 0, 16, 16, x + 1, y + 1);
+                    break;
+                  case 5:
+                    self.CopyArea(self.pmfillpoly, 0, 0, 16, 16, x + 1, y + 1);
                     break;
                 }
             }
@@ -238,13 +298,25 @@ static char *test[] = {
 class Thing
 {
     var colorspec;
+    var _color;
     function Thing(string colorspec)
     {
         self.colorspec = colorspec;
     }
+    function _getcolor(drawable)
+    {
+        var color = self._color;
+        if (color == null)
+            self._color = color = drawable.display.ParseColor(self.colorspec);
+        return color;
+    }
     function setforeground(drawable)
     {
-        drawable.SetForeground(self.colorspec);
+        drawable.SetForeground(self._getcolor(drawable));
+    }
+    function setbackground(drawable)
+    {
+        drawable.SetBackground(self._getcolor(drawable));
     }
 }
 
@@ -287,6 +359,35 @@ class Line : Thing
     function close()
     {
         self.closed =: true;
+    }
+}
+
+class Poly : Line
+{
+    function Poly(string colorspec, int x0, int y0, int x1, int y1)
+    {
+        self.Line(colorspec, x0, y0, x1, y1);
+    }
+}
+
+class FillPoly : Poly
+{
+    function FillPoly(string colorspec, int x0, int y0, int x1, int y1)
+    {
+        self.Poly(colorspec, x0, y0, x1, y1);
+    }
+    function draw(drawable)
+    {
+        self.setforeground(drawable);
+        self.setbackground(drawable);
+        drawable.FillPolygon(self.x, self.y);
+    }
+    function hint(drawable)
+    {
+        self.setforeground(drawable);
+        drawable.SetFunction(GXinvert);
+        drawable.DrawLines(self.x, self.y);
+        drawable.SetFunction(GXcopy);
     }
 }
 
@@ -489,7 +590,10 @@ class Pizarra : TopLevelWindow
 
 class Board : ChildWindow
 {
-    const int HANDLINE = 0, LINE = 1, RECTANGLE = 2, FILLRECT = 3;
+    const int
+       HANDLINE  = 0, LINE = 1,
+       RECTANGLE = 2, FILLRECT = 3,
+       POLY      = 4, FILLPOLY = 5;
 
     var parent;
     var mode;
@@ -567,7 +671,8 @@ class Board : ChildWindow
             break;
           case "Shift_L":
           case "Shift_R":
-            if (self.pressed && self.mode == LINE) {
+            int mode = self.mode;
+            if (self.pressed && (mode == LINE || mode == POLY || mode == FILLPOLY)) {
                 int initx = self.initx;
                 int inity = self.inity;
                 int oldx = self.oldx;
@@ -575,15 +680,40 @@ class Board : ChildWindow
                 self.hintline(initx, inity, oldx, oldy);
                 var l = self.line;
                 if (l == null) {
-                    l = new Line(self.colorspec, initx, inity, oldx, oldy);
+                    switch (mode) {
+                      case LINE:
+                        l = new Line(self.colorspec, initx, inity, oldx, oldy);
+                        break;
+                      case POLY:
+                        l = new Poly(self.colorspec, initx, inity, oldx, oldy);
+                        break;
+                      case FILLPOLY:
+                        l = new FillPoly(self.colorspec, initx, inity, oldx, oldy);
+                        break;
+                    }
                     self.line = l;
                     self.listline.push(l);
                 }
-                else
+                else {
+                    if (mode == FILLPOLY)
+                        l.hint(self);
                     l.addsegment(oldx - initx, oldy - inity);
-                l.draw(self);
+                }
+                switch (mode) {
+                  case LINE:
+                    l.draw(self);
+                    break;
+                  case POLY:
+                    self.DrawLine(initx, inity, oldx, oldy);
+                    break;
+                  case FILLPOLY:
+                    l.hint(self);
+                    break;
+                }
                 self.initx =: oldx;
                 self.inity =: oldy;
+                self.oldx =: oldx;
+                self.oldy =: oldy;
             }
             break;
           default:
@@ -648,6 +778,33 @@ class Board : ChildWindow
             }
             l.draw(self);
             break;
+          case POLY:
+            self.hintline(initx, inity, oldx, oldy);
+            var p = self.line;
+            if (p == null) {
+                p = new Poly(colorspec, initx, inity, oldx, oldy);
+                self.listline.push(p);
+            }
+            else {
+                p.addsegment(oldx - initx, oldy - inity);
+                p.close();
+            }
+            p.draw(self);
+            break;
+          case FILLPOLY:
+            self.hintline(initx, inity, oldx, oldy);
+            var fp = self.line;
+            fp.hint(self);
+            if (fp == null) {
+                fp = new FillPoly(colorspec, initx, inity, oldx, oldy);
+                self.listline.push(fp);
+            }
+            else {
+                fp.addsegment(oldx - initx, oldy - inity);
+                fp.close();
+            }
+            fp.draw(self);
+            break;
         }
         self.line = null;
     }
@@ -680,6 +837,8 @@ class Board : ChildWindow
                     self.DrawLine(oldx, oldy, x, y);
                     break;
                   case LINE:
+                  case POLY:
+                  case FILLPOLY:
                     self.hintline(self.initx, self.inity, oldx, oldy);
                     self.hintline(self.initx, self.inity, x, y);
                     break;
