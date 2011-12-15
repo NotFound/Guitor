@@ -49,6 +49,8 @@ const string
 // Special keys
 const string 
     CTRL_C = "\x{3}",
+    CTRL_Q = "\x{11}",
+    CTRL_S = "\x{13}",
     CTRL_V = "\x{16}",
     CTRL_X = "\x{18}";
 
@@ -203,6 +205,111 @@ class AlertWindow : TopLevelWindow
         int marginleft = self.marginleft;
         for (int i = 0, n = elements(text); i < n; ++i)
             self.DrawImageString(marginleft, i * lineheight + ascent, text[i]);
+    }
+}
+
+//**************************************************************
+
+class SaveasWindow : ChildWindow
+{
+    var parent;
+    var font;
+    var height;
+    var edit;
+    var bok;
+    var bcancel;
+    function SaveasWindow(parent, font, int width)
+    {
+        self.parent = parent;
+        self.font = font;
+        int height = 24;
+        self.height = height;
+        var bgcolor = parent.display.ParseColor("RGB:A/A/A");
+        self.ChildWindow(parent, 0, 0, parent.width, height,
+            { "background-color" : bgcolor } );
+        self.SetBackground(bgcolor);
+        int editxpos = font.getTextxOff(self.display, "Save as ");
+
+        var bok = new TextButton(self, 0, 0, 0, 0, "Ok", font);
+        int bokwidth = bok.getwidth();
+        int bheight = bok.getheight();
+        bok.MoveResizeWindow(width - bokwidth - 2, (height - bheight) / 2,
+                bokwidth, bheight);
+        self.bok = bok;
+        var bcancel = new TextButton(self, 0, 0, 0, 0, "cancel", font);
+        int bcancelwidth = bcancel.getwidth();
+        bcancel.MoveResizeWindow(width - bcancelwidth - bokwidth - 4,
+                (height - bheight) / 2,
+                bcancelwidth, bheight);
+        self.bcancel = bcancel;
+
+        int editwidth = width - editxpos - bokwidth - bcancelwidth - 6;
+        var edit = new EditBox(self, editxpos, 2, editwidth, 0, font);
+        self.edit = edit;
+        self.height = 4 + edit.height;
+
+        self.OnExpose += eventhandler(self, "onexpose");
+        edit.OnKeyPress += eventhandler(self, "oneditkeypress");
+        bok.OnClick += eventhandler(self, "doit");
+        bcancel.OnClick += eventhandler(self, "cancel");
+
+        edit.Map();
+        bok.Map();
+        bcancel.Map();
+    }
+    function close()
+    {
+        var bok = self.bok;
+        if (bok != null) {
+            self.bok = null;
+            bok.Destroy();
+        }
+        var bcancel = self.bcancel;
+        if (bcancel != null) {
+            self.bcancel = null;
+            bcancel.Destroy();
+        }
+        var edit = self.edit;
+        if (edit != null) {
+            self.edit = null;
+            edit.Destroy();
+        }
+        self.Destroy();
+    }
+    function getheight()
+    {
+        return int(self.height);
+    }
+    function setfocus()
+    {
+        var edit = self.edit;
+        if (edit != null)
+            self.edit.SetInputFocus(RevertToParent);
+    }
+    function doit(event [optional])
+    {
+        self.parent.savetofile(self.edit.getValue());
+        self.parent.closedialog();
+    }
+    function cancel(event [optional])
+    {
+        self.parent.closedialog();
+    }
+    function onexpose(event)
+    {
+        self.SetFont(self.font);
+        self.DrawImageString(2, 18, "Save as");
+    }
+    function oneditkeypress(event)
+    {
+        switch (event.keyname()) {
+          case "Escape":
+            self.cancel();
+            break;
+          case "Return":
+            self.doit();
+            break;
+        }
     }
 }
 
@@ -521,8 +628,6 @@ class TextWindow : ChildWindow
                 string line = text[curline];
                 if (substr(line, 0, curpos) == " " * curpos) {
                     if (curpos < 4) {
-                        line = substr(line, curpos);
-                        curpos = 0;
                     }
                     else {
                         line = substr(line, 4);
@@ -606,6 +711,12 @@ class TextWindow : ChildWindow
                 if (! self.movedown())
                     self.drawlines(curline, 0);
                 break;
+              case CTRL_Q:
+                self.parent.close();
+                return;
+              case CTRL_S:
+                self.parent.save();
+                return;
               case CTRL_C:
                 self.copyselected(event.time());
                 break;
@@ -1293,6 +1404,7 @@ class PokeditWindow : TopLevelWindow
     var statusfont;
     var textwindow;
     var statuswindow;
+    var dialogwindow;
     var filename;
     function PokeditWindow(controller)
     {
@@ -1317,6 +1429,7 @@ class PokeditWindow : TopLevelWindow
         var menubar = new MenuBar(display, menufont);
         var filemenu = new Menu(display, menufont);
         filemenu.push("save", method_fun(self, "save") );
+        filemenu.push("save as", method_fun(self, "saveas") );
         filemenu.push("close", method_fun(self, "close") );
         var editmenu = new Menu(display, menufont);
         editmenu.push("cut", method_fun(self, "cut") );
@@ -1353,17 +1466,27 @@ class PokeditWindow : TopLevelWindow
         int height = self.height;
         int menubarh = self.menubarh;
         self.menubarw.ResizeWindow(width, menubarh);
+        int nextypos = menubarh + 1;
         int textheight = height - menubarh - 2;
+
+        var dialogwindow = self.dialogwindow;
+        if (dialogwindow != null) {
+            int dheight = dialogwindow.getheight();
+            dialogwindow.MoveResizeWindow(1, nextypos, width - 2, dheight);
+            nextypos += dheight + 2;
+            textheight -= dheight + 2;
+        }
+
         var statuswindow = self.statuswindow;
         if (statuswindow != null) {
             int stheight = statuswindow.getheight();
             textheight -= stheight + 1;
-            statuswindow.MoveResizeWindow(1, textheight + menubarh + 2,
+            statuswindow.MoveResizeWindow(1, textheight + nextypos + 1,
                     width - 2, stheight);
         }
         var textwindow = self.textwindow;
         if (textwindow != null)
-            textwindow.ResizeWindow(width - 2, textheight);
+            textwindow.MoveResizeWindow(1, nextypos, width - 2, textheight);
     }
     function onconfigure(event)
     {
@@ -1391,6 +1514,11 @@ class PokeditWindow : TopLevelWindow
                 self.controller.pushaction(method_fun(self, "close"));
                 break;
               case WM_TAKE_FOCUS_s:
+                var dialogwindow = self.dialogwindow;
+                if (dialogwindow != null) {
+                    dialogwindow.setfocus();
+                    break;
+                }
                 var textwindow = self.textwindow;
                 if (textwindow != null)
                     textwindow.SetInputFocus(RevertToParent);
@@ -1427,35 +1555,60 @@ class PokeditWindow : TopLevelWindow
         self.filename = filename;
         self.textwindow.set(lines);
     }
+    function closedialog()
+    {
+        var dialogwindow = self.dialogwindow;
+        if (dialogwindow != null) {
+            self.dialogwindow = null;
+            dialogwindow.close();
+            self.controller.pushaction(method_fun(self, "configuresubwindows"));
+        }
+    }
+    function savetofile(string sfile)
+    {
+        var text = self.textwindow.text;
+        try {
+            var handle = open(sfile, "w");
+            handle.encoding("utf8");
+            handle.print(join("\n", text));
+            // Check for newline at end of file:
+            // avoid adding spurious newllines or leaving non terminated
+            // lines at end.
+            string last = text[-1];
+            if (length(last) != 0)
+                handle.print("\n");
+            handle.close();
+            self.filename = sfile;
+        }
+        catch (e) {
+            self.alert("Error saving file '" + sfile + "':\n" +
+                    string(e["message"]));
+        }
+    }
+    function saveas()
+    {
+        self.dialogwindow = new SaveasWindow(self, self.statusfont, self.width - 2);
+        self.configuresubwindows();
+        self.dialogwindow.Map();
+        self.dialogwindow.setfocus();
+    }
     function save()
     {
         var filename = self.filename;
         if (filename == null)
-            self.alert("save: no filename\n'Save as' not implemented yet");
-        else {
-            var text = self.textwindow.text;
-            string sfile = filename;
-            try {
-                var handle = open(sfile, "w");
-                handle.encoding("utf8");
-                handle.print(join("\n", text));
-                // Check for newline at end of file:
-                // avoid adding spurious newllines or leaving non terminated
-                // lines at end.
-                string last = text[-1];
-                if (length(last) != 0)
-                    handle.print("\n");
-                handle.close();
-                self.alert("Saved:\nFilename: '" + sfile + "'");
-            }
-            catch (e) {
-                self.alert("Error saving file '" + sfile + "':\n" +
-                        string(e["message"]));
-            }
-        }
+            self.saveas();
+        else
+            self.savetofile(filename);
     }
     function close()
     {
+        var dialogwindow = self.dialogwindow;
+        if (dialogwindow != null) {
+            self.dialogwindow = null;
+            dialogwindow.close();
+            self.controller.pushaction(method_fun(self, "close"));
+            return;
+        }
         var menubarw = self.menubarw;
         if (menubarw != null) {
             self.menubarw = null;
@@ -1573,3 +1726,4 @@ function main [main] (args)
 }
 
 // End
+
