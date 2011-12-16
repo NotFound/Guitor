@@ -2804,6 +2804,9 @@ const int BARSEP = 16;
 class MenuBarWindow : ChildWindow
 {
     var parent;
+    var fgcolor;
+    var bgcolor;
+    var hibgcolor;
     var menubar;
     var itempos;
     var height;
@@ -2819,6 +2822,9 @@ class MenuBarWindow : ChildWindow
         var font = menubar.font;
         var fgcolor = display.ParseColor("black");
         var bgcolor = display.ParseColor("grey90");
+        self.fgcolor = fgcolor;
+        self.bgcolor = bgcolor;
+        self.hibgcolor = display.ParseColor("grey70");
         int height = font.getHeight() + 8;
         self.height = height;
         if (width <= 0)
@@ -2882,10 +2888,15 @@ class MenuBarWindow : ChildWindow
         __ASSERT__(nitem < elements(self.itempos));
         if (self.child != null)
             self.child.Destroy();
+        if (self.curitem != CURRENT_NONE)
+            self.updateitem(self.curitem, false);
+        self.SetBackground(self.hibgcolor);
+        self.updateitem(nitem, true);
+        self.SetBackground(self.bgcolor);
         self.curitem = nitem;
         int x = self.itempos[nitem];
         var action = self.menubar.items[nitem].action;
-        self.child = action.open(self.parent, x, self.height - 4);
+        self.child = action.open(self.parent, x, self.height - 2);
     }
     function deactivate(int time)
     {
@@ -2913,16 +2924,26 @@ class MenuBarWindow : ChildWindow
         }
         return grab;
     }
-    function onexpose(event)
+    function updateitem(int nitem, int hilight)
     {
         int baseline = self.menubar.font.getAscent() + 2;
         var items = self.menubar.items;
-        int n = elements(items);
         var itempos = self.itempos;
-        for (int i = 0; i < n; ++i) {
-            string str = items[i].name;
-            self.DrawImageString(itempos[i], baseline, str);
-        }
+        string str = items[nitem].name;
+        int x = itempos[nitem];
+        self.SetForeground(hilight ? self.hibgcolor : self.bgcolor);
+        self.FillRectangle(x - BARSEP / 4, 0,
+            self.getTextWidth(str) + BARSEP / 2, self.height);
+        self.SetForeground(self.fgcolor);
+        self.DrawString(x, baseline, str);
+    }
+    function onexpose(event)
+    {
+        int curitem = self.curitem;
+        var items = self.menubar.items;
+        int n = elements(items);
+        for (int i = 0; i < n; ++i)
+            self.updateitem(i, i == curitem);
     }
     function onbuttonpress(event)
     {
