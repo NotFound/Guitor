@@ -1070,8 +1070,8 @@ class TextWindow : ChildWindow
         string lastline = text[endline];
         string line = substr(firstline, 0, stpos) + substr(lastline, endpos);
         text[stline] = line;
-        for (int l = stline + 1; l < endline; ++l)
-            delete text[stline + l];
+        for (int i = 0; i < endline - stline; ++i)
+            delete text[stline + 1];
         self.selected = null;
         self.curline =: stline;
         self.curpos =: stpos;
@@ -1561,7 +1561,8 @@ class PokeditWindow : TopLevelWindow
         if (dialogwindow != null) {
             self.dialogwindow = null;
             dialogwindow.close();
-            self.controller.pushaction(method_fun(self, "configuresubwindows"));
+            self.controller.pushaction(method_fun(self,
+                    "configuresubwindows"));
         }
     }
     function savetofile(string sfile)
@@ -1587,7 +1588,8 @@ class PokeditWindow : TopLevelWindow
     }
     function saveas()
     {
-        self.dialogwindow = new SaveasWindow(self, self.statusfont, self.width - 2);
+        self.dialogwindow = new SaveasWindow(self, self.statusfont,
+                self.width - 2);
         self.configuresubwindows();
         self.dialogwindow.Map();
         self.dialogwindow.setfocus();
@@ -1726,4 +1728,3 @@ function main [main] (args)
 }
 
 // End
-
