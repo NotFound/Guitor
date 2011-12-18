@@ -925,8 +925,14 @@ class TextWindow : ChildWindow
         }
         else if (target == typeutf8 || target == XA_STRING) {
             // Request for text: fine, do it.
-            var copybuffer = self.copybuffer;
-            string textsel = copybuffer == null ? "" : copybuffer;
+            string textsel;
+            if (selection == XA_PRIMARY)
+                textsel = self.getselectedtext();
+            else {
+                // Assume CLIPBOARD
+                var copybuffer = self.copybuffer;
+                textsel = copybuffer == null ? "" : copybuffer;
+            }
             // Some clients can request STRING without checking.
             // Try to transcode in that case.
             if (target == XA_STRING) {
