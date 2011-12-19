@@ -2048,12 +2048,13 @@ class EditBox : ChildWindow
         self.inipos = 0;
         self.pos = 0;
         self.offset = 0;
+        int ascent = font.getAscent();
         if (height == 0)
-            height = font.getHeight() + MARGINSUP;
+            height = ascent + font.getDescent() + MARGINSUP + 2;
         if (width == 0)
             width = 200;
         self.height = height;
-        self.baseline = font.getAscent() + MARGINSUP + 1;
+        self.baseline = ascent + MARGINSUP + 1;
         self.width = width;
         self.has_focus = false;
         self.ChildWindow(parent, x, y, width, height);
@@ -2072,6 +2073,8 @@ class EditBox : ChildWindow
         self.OnSelectionRequest += function (event) { self.onselectionrequest(event); };
         self.OnSelectionClear += function (event) { self.onselectionclear(event); };
     }
+    function getwidth() { return int(self.width); }
+    function getheight() { return int(self.height); }
     function getValue()
     {
         return self.text;
