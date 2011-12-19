@@ -233,20 +233,23 @@ class SaveasWindow : ChildWindow
         var bok = new TextButton(self, 0, 0, 0, 0, "Ok", font);
         int bokwidth = bok.getwidth();
         int bheight = bok.getheight();
-        bok.MoveResizeWindow(width - bokwidth - 2, (height - bheight) / 2,
+        bok.MoveResizeWindow(width - bokwidth - 2, (height - bheight) / 2 + 1,
                 bokwidth, bheight);
         self.bok = bok;
         var bcancel = new TextButton(self, 0, 0, 0, 0, "cancel", font);
         int bcancelwidth = bcancel.getwidth();
         bcancel.MoveResizeWindow(width - bcancelwidth - bokwidth - 4,
-                (height - bheight) / 2,
+                (height - bheight) / 2 + 1,
                 bcancelwidth, bheight);
         self.bcancel = bcancel;
 
         int editwidth = width - editxpos - bokwidth - bcancelwidth - 6;
         var edit = new EditBox(self, editxpos, 2, editwidth, 0, font);
         self.edit = edit;
-        self.height = 4 + edit.height;
+        int eheight = edit.getheight();
+        edit.MoveWindow(editxpos, (height - eheight) / 2 + 1);
+
+        self.height = 4 + eheight;
 
         self.OnExpose += eventhandler(self, "onexpose");
         edit.OnKeyPress += eventhandler(self, "oneditkeypress");
