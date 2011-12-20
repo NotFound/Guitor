@@ -40,11 +40,13 @@ function method_fun(object, string methodname)
 // Some common use atoms
 
 const string
-    WM_PROTOCOLS_s     = "WM_PROTOCOLS",
-    WM_DELETE_WINDOW_s = "WM_DELETE_WINDOW",
-    WM_TAKE_FOCUS_s    = "WM_TAKE_FOCUS",
-    UTF8_STRING        = "UTF8_STRING",
-    CLIPBOARD          = "CLIPBOARD";
+    WM_PROTOCOLS_s              = "WM_PROTOCOLS",
+    WM_DELETE_WINDOW_s          = "WM_DELETE_WINDOW",
+    WM_TAKE_FOCUS_s             = "WM_TAKE_FOCUS",
+    NET_WM_WINDOW_TYPE_s        = "_NET_WM_WINDOW_TYPE",
+    NET_WM_WINDOW_TYPE_DIALOG_s = "_NET_WM_WINDOW_TYPE_DIALOG",
+    UTF8_STRING_s               = "UTF8_STRING",
+    CLIPBOARD_s                 = "CLIPBOARD";
 
 // Special keys
 const string 
@@ -177,6 +179,11 @@ class AlertWindow : TopLevelWindow
         self.height = height;
         self.TopLevelWindow(parent.controller,
                 "Pokedit alert", 0, 0, width, height + lineheight * 3);
+        self.SetTransientFor(parent);
+        display.ChangePropertyInt32(self.getDID(),
+                self.InternAtom(NET_WM_WINDOW_TYPE_s),
+                XA_ATOM, PropModeReplace,
+                self.InternAtom(NET_WM_WINDOW_TYPE_DIALOG_s));
         var fgcolor = parent.display.ParseColor("black");
         self.SetForeground(fgcolor);
         var bgcolor = parent.display.ParseColor("white");
@@ -191,7 +198,10 @@ class AlertWindow : TopLevelWindow
         self.SetWMProtocols([ WM_DELETE_WINDOW_s ]);
         self.OnClientMessage += eventhandler(self, "onclientmessage");
         self.OnExpose        += eventhandler(self, "onexpose");
-        self.SetTransientFor(parent);
+    }
+    function setfocus()
+    {
+        self.SetInputFocus(RevertToParent);
     }
     function onclientmessage(event)
     {
@@ -784,7 +794,7 @@ class TextWindow : ChildWindow
             // Paste primary selection - unfinished
             var display = self.display;
             display.ConvertSelection(XA_PRIMARY,
-                    self.InternAtom(UTF8_STRING),
+                    self.InternAtom(UTF8_STRING_s),
                     XA_PRIMARY, self, event.time());
             break;
           case 4:
@@ -920,7 +930,7 @@ class TextWindow : ChildWindow
         var display = self.display;
 
         string targetname = self.GetAtomName(target);
-        int typeutf8 = self.InternAtom("UTF8_STRING");
+        int typeutf8 = self.InternAtom(UTF8_STRING_s);
         // Request for supported types: answer only utf8 text.
         if (targetname == "TARGETS") {
             display.ChangePropertyInt32(requestor,
@@ -972,7 +982,7 @@ class TextWindow : ChildWindow
         int target = event.target();
         int property = event.property();
         if (property == None) {
-            if (target == self.InternAtom("UTF8_STRING")) {
+            if (target == self.InternAtom(UTF8_STRING_s)) {
                 // Retry with plain string type
                 display.ConvertSelection(selection, XA_STRING,
                         selection, self, event.time());
@@ -1149,9 +1159,9 @@ class TextWindow : ChildWindow
     }
     function paste(int time)
     {
-        int clipboard = self.InternAtom(CLIPBOARD);
-        self.display.ConvertSelection(clipboard, self.InternAtom(UTF8_STRING),
-                clipboard, self, time);
+        int clipboard = self.InternAtom(CLIPBOARD_s);
+        self.display.ConvertSelection(clipboard,
+                self.InternAtom(UTF8_STRING_s), clipboard, self, time);
     }
     function cutselected(int time)
     {
@@ -1166,7 +1176,7 @@ class TextWindow : ChildWindow
             self.drawall();
             self.parent.updatepos();
             self.cursor();
-            self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
+            self.SetSelectionOwner(self.InternAtom(CLIPBOARD_s), time);
         }
     }
     function copyselected(int time)
@@ -1176,7 +1186,7 @@ class TextWindow : ChildWindow
         else {
             string text = self.getselectedtext();
             self.copybuffer = text;
-            self.SetSelectionOwner(self.InternAtom(CLIPBOARD), time);
+            self.SetSelectionOwner(self.InternAtom(CLIPBOARD_s), time);
         }
     }
     function checkxoff()
@@ -1414,6 +1424,7 @@ class PokeditWindow : TopLevelWindow
     var textwindow;
     var statuswindow;
     var dialogwindow;
+    var alertwindow;
     var filename;
     function PokeditWindow(controller)
     {
@@ -1523,6 +1534,11 @@ class PokeditWindow : TopLevelWindow
                 self.controller.pushaction(method_fun(self, "close"));
                 break;
               case WM_TAKE_FOCUS_s:
+                var alertwindow = self.alertwindow;
+                if (alertwindow != null) {
+                    alertwindow.setfocus();
+                    break;
+                }
                 var dialogwindow = self.dialogwindow;
                 if (dialogwindow != null) {
                     dialogwindow.setfocus();
@@ -1692,6 +1708,8 @@ class PokeditWindow : TopLevelWindow
     function alert(string message)
     {
         var alertw = new AlertWindow(self, message);
+        self.alertwindow = alertw;
+        alertw.OnDestroy += function (event) { self.alertwindow = null; };
         alertw.Map();
     }
 }
