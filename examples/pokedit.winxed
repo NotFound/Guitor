@@ -5,6 +5,8 @@
 
 $include "Guitor.winxhead";
 
+$include_const "hash_key_type.pasm";
+
 $load "Guitor.pbc";
 
 using namespace Guitor;
@@ -50,7 +52,9 @@ const string
 
 // Special keys
 const string 
+    CTRL_A = "\x{1}",
     CTRL_C = "\x{3}",
+    CTRL_N = "\x{E}",
     CTRL_Q = "\x{11}",
     CTRL_S = "\x{13}",
     CTRL_V = "\x{16}",
@@ -724,6 +728,12 @@ class TextWindow : ChildWindow
                 if (! self.movedown())
                     self.drawlines(curline, 0);
                 break;
+              case CTRL_A:
+                self.selectall(event.time());
+                return;
+              case CTRL_N:
+                self.parent.new();
+                return;
               case CTRL_Q:
                 self.parent.close();
                 return;
@@ -1163,6 +1173,17 @@ class TextWindow : ChildWindow
         self.display.ConvertSelection(clipboard,
                 self.InternAtom(UTF8_STRING_s), clipboard, self, time);
     }
+    function selectall(int time)
+    {
+        self.cursor();
+        self.cancelselected();
+        self.selected = new SelectedText(0, 0);
+        self.selected.move(elements(self.text), 0);
+        self.SetSelectionOwner(XA_PRIMARY, time);
+        self.drawall();
+        self.invertselection();
+        self.cursor();
+    }
     function cutselected(int time)
     {
         if (self.selected == null)
@@ -1415,6 +1436,7 @@ class TextWindow : ChildWindow
 
 class PokeditWindow : TopLevelWindow
 {
+    var id;
     var width;
     var height;
     var menubarh;
@@ -1428,6 +1450,7 @@ class PokeditWindow : TopLevelWindow
     var filename;
     function PokeditWindow(controller)
     {
+        self.id = controller.genuid();
         int width = 800;
         int height = 600;
         self.width = width;
@@ -1448,6 +1471,7 @@ class PokeditWindow : TopLevelWindow
 
         var menubar = new MenuBar(display, menufont);
         var filemenu = new Menu(display, menufont);
+        filemenu.push("new", method_fun(self, "new") );
         filemenu.push("save", method_fun(self, "save") );
         filemenu.push("save as", method_fun(self, "saveas") );
         filemenu.push("close", method_fun(self, "close") );
@@ -1455,6 +1479,7 @@ class PokeditWindow : TopLevelWindow
         editmenu.push("cut", method_fun(self, "cut") );
         editmenu.push("copy", method_fun(self, "copy") );
         editmenu.push("paste", method_fun(self, "paste") );
+        editmenu.push("select all", method_fun(self, "selectall") );
         var viewmenu = new Menu(display, menufont);
         viewmenu.push("status", method_fun(self, "togglestatus") );
         var toolsmenu = new Menu(display, menufont);
@@ -1479,6 +1504,10 @@ class PokeditWindow : TopLevelWindow
         self.textwindow = textwindow;
         self.configuresubwindows();
         menubarw.Map();
+    }
+    function getid()
+    {
+        return int(self.id);
     }
     function configuresubwindows()
     {
@@ -1619,6 +1648,10 @@ class PokeditWindow : TopLevelWindow
         self.dialogwindow.Map();
         self.dialogwindow.setfocus();
     }
+    function new()
+    {
+        self.controller.pokeditnew();
+    }
     function save()
     {
         var filename = self.filename;
@@ -1693,6 +1726,12 @@ class PokeditWindow : TopLevelWindow
         if (textwindow != null)
             textwindow.paste(CurrentTime);
     }
+    function selectall()
+    {
+        var textwindow = self.textwindow;
+        if (textwindow != null)
+            textwindow.selectall(CurrentTime);
+    }
     function indent()
     {
         var textwindow = self.textwindow;
@@ -1718,26 +1757,40 @@ class PokeditWindow : TopLevelWindow
 
 class PokeditController : Controller
 {
+    var nextuid;
+    var pkwin;
     function PokeditController()
     {
         self.Controller();
+        self.nextuid = 0;
+        self.pkwin = new ["Hash"](Hash_key_type_int);
+    }
+    function genuid()
+    {
+        int uid = ++self.nextuid;
+        return uid;
     }
     function pokeditnew()
     {
         var pokedit = new PokeditWindow(self);
+        self.pkwin[pokedit.getid()] = pokedit;
         pokedit.OnDestroy += function (event) { self.pokeditclosed(pokedit); };
         pokedit.Map();
     }
     function pokeditopen(string filename)
     {
         var pokedit = new PokeditWindow(self);
-        pokedit.openfile(filename);
+        self.pkwin[pokedit.getid()] = pokedit;
         pokedit.OnDestroy += function (event) { self.pokeditclosed(pokedit); };
+        pokedit.openfile(filename);
         pokedit.Map();
     }
     function pokeditclosed(window)
     {
-        self.pushaction(method_fun(self, "Quit"));
+        var pkwin = self.pkwin;
+        delete pkwin[window.getid()];
+        if (elements(pkwin) == 0)
+            self.pushaction(method_fun(self, "Quit"));
     }
 }
 
