@@ -33,6 +33,7 @@ const string
     SELECTIONVIEW        = "selectionview",
     SELECTIONREQUESTVIEW = "selectionrequestview",
     CLIENTVIEW           = "clientview",
+    XTEXTPROPERTY        = "xtextproperty",
     XAWMHINTSVIEW        = "xawmhintsview",
     ATOMVIEW             = "atomview",
     XCOLORVIEW           = "xcolorview",
@@ -435,6 +436,33 @@ function getatomview(int n)
     return new ["StructView"] (init);
 }
 
+function gettextpropertyview()
+{
+    var ns = namespace Xlib__nci;
+    var st = ns[XTEXTPROPERTY];
+    if (st == null)
+        ns[XTEXTPROPERTY] = st = new ["StructView"]( [ DATATYPE_STRUCT, 4,
+            DATATYPE_PTR,  // value
+            XLIB_Atom,     // encoding
+            DATATYPE_INT,  // format
+            DATATYPE_LONG  // nitems
+        ] );
+    return st;
+}
+
+function textpropertyfromstring(string str, int encoding)
+{
+    var view = gettextpropertyview();
+    var prop = view.alloc();
+    var pstr = str_to_achar_utf8(str);
+    int l = elements(pstr);
+    view[prop, 0] = pstr;
+    view[prop, 1] = encoding;
+    view[prop, 2] = 8;
+    view[prop, 3] = l;
+    return prop;
+}
+
 function getxawmhints()
 {
     var ns = namespace Xlib__nci;
@@ -655,6 +683,9 @@ function create_function(string funcname)
         break;
       case "XStoreName":
         sig = "ipip";
+        break;
+      case "XSetWMName":
+        sig = "vpip";
         break;
       case "XDrawPoint":
         sig = "ipipii";

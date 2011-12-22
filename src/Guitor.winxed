@@ -43,6 +43,8 @@ extern function getselectionclearview;
 extern function getselectionrequestview;
 extern function getselectionview;
 extern function getclientview;
+extern function gettextpropertyview;
+extern function textpropertyfromstring;
 extern function getxcolorview;
 extern function getxftcolorview;
 extern function getxftfontview;
@@ -1516,6 +1518,17 @@ class Window : Drawable
         getfun("XStoreName")(self.display.xdisplay, self.xdrawable,
                 str_to_cstring(name));
     }
+    function SetWMName(string name)
+    {
+        __DEBUG__ && cry(__FUNCTION__);
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None) {
+            // Not sure if using UTF8_STRING is correct, but works for a now
+            var prop = textpropertyfromstring(name,
+                    self.InternAtom("UTF8_STRING"));
+            getfun("XSetWMName")(self.display.xdisplay, self.xdrawable, prop);
+        }
+    }
     function SetWMProtocols(names)
     {
         self.display.SetWMProtocols(self, names);
@@ -1958,7 +1971,7 @@ class TopLevelWindow : ListenerWindow
         }
         self.xdrawable = display.CreateSimpleWindow(x, y, width, height,
                 0, 0, background);
-        self.StoreName(title);
+        self.SetWMName(title);
         self.ListenerWindow(controller);
     }
 }
