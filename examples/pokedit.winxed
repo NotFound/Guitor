@@ -802,10 +802,7 @@ class TextWindow : ChildWindow
             break;
           case 2:
             // Paste primary selection - unfinished
-            var display = self.display;
-            display.ConvertSelection(XA_PRIMARY,
-                    self.InternAtom(UTF8_STRING_s),
-                    XA_PRIMARY, self, event.time());
+            self.paste_selection(XA_PRIMARY, event.time());
             break;
           case 4:
             if (self.up()) {
@@ -987,15 +984,14 @@ class TextWindow : ChildWindow
     }
     function onselectionnotify(event)
     {
-        var display = self.display;
         int selection = event.selection();
         int target = event.target();
         int property = event.property();
         if (property == None) {
             if (target == self.InternAtom(UTF8_STRING_s)) {
                 // Retry with plain string type
-                display.ConvertSelection(selection, XA_STRING,
-                        selection, self, event.time());
+                self.ConvertSelection(selection, XA_STRING,
+                        selection, event.time());
             }
             return;
         }
@@ -1167,11 +1163,15 @@ class TextWindow : ChildWindow
             self.SetSelectionOwner(XA_PRIMARY, CurrentTime);
         }
     }
+    function paste_selection(int atomsel, int time)
+    {
+        self.ConvertSelection(atomsel, self.InternAtom(UTF8_STRING_s),
+                atomsel, time);
+    }
     function paste(int time)
     {
         int clipboard = self.InternAtom(CLIPBOARD_s);
-        self.display.ConvertSelection(clipboard,
-                self.InternAtom(UTF8_STRING_s), clipboard, self, time);
+        self.paste_selection(clipboard, time);
     }
     function selectall(int time)
     {
