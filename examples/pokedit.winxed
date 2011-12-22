@@ -780,28 +780,27 @@ class TextWindow : ChildWindow
     }
     function onbuttonpress(event)
     {
+        int curpos, curline;
         switch (event.button()) {
           case 1:
             self.cursor();
-            int x = event.x();
-            int y = event.y();
-            var text = self.text;
-            int l = self.getline(y);
-            int pos;
-            if (l < elements(text))
-                pos = self.getpos(x, l);
-            else 
-                pos = 0;
+            :(curpos, curline) = self.gettextpos(event.x(), event.y());
             self.cancelselected();
-            self.selected = new SelectedText(l, pos);
+            self.selected = new SelectedText(curline, curpos);
             self.pressed =: 1;
-            self.curpos =: pos;
-            self.curline =: l;
+            self.curpos =: curpos;
+            self.curline =: curline;
             self.parent.updatepos();
             self.cursor();
             break;
           case 2:
-            // Paste primary selection - unfinished
+            // Paste primary selection
+            self.cursor();
+            :(curpos, curline) = self.gettextpos(event.x(), event.y());
+            self.curpos =: curpos;
+            self.curline =: curline;
+            self.parent.updatepos();
+            self.cursor();
             self.paste_selection(XA_PRIMARY, event.time());
             break;
           case 4:
@@ -849,13 +848,7 @@ class TextWindow : ChildWindow
             self.cursor();
             int x = event.x();
             int y = event.y();
-            var text = self.text;
-            int l = self.getline(y);
-            int pos;
-            if (l < elements(text))
-                pos = self.getpos(x, l);
-            else 
-                pos = 0;
+            :(int pos, int l) = self.gettextpos(x, y);
             self.invertselection();
             self.selected.moveend(l, pos);
             int headline = self.headline;
@@ -920,6 +913,68 @@ class TextWindow : ChildWindow
         return x < ((self.getTextxOff(substr(line, 0, mp)) +
                      self.getTextxOff(substr(line, 0, mp + 1))) / 2) ?
                      mp : mp + 1;
+    }
+    function gettextpos(int x, int y)
+    {
+        int l = self.getline(y);
+        int pos = l < elements(self.text) ? self.getpos(x, l) : 0;
+        return pos, l;
+    }
+    function insert(string newtext)
+    {
+        if (newtext == null || length(newtext) == 0)
+            return;
+        self.cursor();
+        self.invertselection();
+        int curline = self.curline;
+        int curpos = self.curpos;
+        var text = self.text;
+        string line = text[curline];
+        int l = length(line);
+        if (curpos > l)
+            curpos = l;
+        int pos = indexof(newtext, "\n");
+        if (pos < 0) {
+            line = substr(line, 0, curpos) + newtext + substr(line, curpos);
+            curpos += length(newtext);
+            text[curline] = line;
+            self.curpos =: curpos;
+            if (self.checkxoff())
+                self.drawall();
+            else
+                self.drawline(curline);
+        }
+        else {
+            int fpos = pos;
+            string plines[];
+            int npos;
+            while ((npos = indexof(newtext, "\n", pos + 1)) >= 0) {
+                string l = substr(newtext, pos + 1, npos - pos - 1);
+                push(plines, l);
+                pos = npos;
+            }
+            int nplines = elements(plines);
+            string firstline = substr(line, 0, curpos) +
+                    substr(newtext, 0, fpos);
+            string lastline = substr(newtext, pos + 1);
+            self.curpos =: length(lastline);
+            lastline += substr(line, curpos);
+            for (int i = elements(text); i > curline; --i)
+                text[i + nplines + 1] = text[i];
+            for (int i = 0; i < nplines; ++i)
+                text[curline + i + 1] = plines[i];
+            text[curline] = firstline;
+            text[curline + nplines + 1] = lastline;
+            int oldcurline = curline;
+            self.curline =: curline + nplines + 1;
+            if (self.adjust() || self.checkxoff())
+                self.drawall();
+            else
+                self.drawlines(oldcurline, 0);
+        }
+        self.parent.updatepos();
+        self.invertselection();
+        self.cursor();
     }
     function onselectionclear(event)
     {
@@ -1002,58 +1057,7 @@ class TextWindow : ChildWindow
             pasted = self.GetPropertyUtf8String(property);
         if (pasted == null)
             return;
-        int lenpasted = length(pasted);
-        if (lenpasted == 0)
-            return;
-        self.cursor();
-        int curline = self.curline;
-        int curpos = self.curpos;
-        var text = self.text;
-        string line = text[curline];
-        int l = length(line);
-        if (curpos > l)
-            curpos = l;
-        int pos = indexof(pasted, "\n");
-        if (pos < 0) {
-            line = substr(line, 0, curpos) + pasted + substr(line, curpos);
-            curpos += length(pasted);
-            text[curline] = line;
-            self.curpos =: curpos;
-            if (self.checkxoff())
-                self.drawall();
-            else
-                self.drawline(curline);
-        }
-        else {
-            int fpos = pos;
-            string plines[];
-            int npos;
-            while ((npos = indexof(pasted, "\n", pos + 1)) >= 0) {
-                string l = substr(pasted, pos + 1, npos - pos - 1);
-                push(plines, l);
-                pos = npos;
-            }
-            int nplines = elements(plines);
-            string firstline = substr(line, 0, curpos) +
-                    substr(pasted, 0, fpos);
-            string lastline = substr(pasted, pos + 1);
-            self.curpos =: length(lastline);
-            lastline += substr(line, curpos);
-            for (int i = elements(text); i > curline; --i)
-                text[i + nplines + 1] = text[i];
-            for (int i = 0; i < nplines; ++i)
-                text[curline + i + 1] = plines[i];
-            text[curline] = firstline;
-            text[curline + nplines + 1] = lastline;
-            int oldcurline = curline;
-            self.curline =: curline + nplines + 1;
-            if (self.adjust() || self.checkxoff())
-                self.drawall();
-            else
-                self.drawlines(oldcurline, 0);
-        }
-        self.parent.updatepos();
-        self.cursor();
+        self.insert(pasted);
     }
     function getselectedtext()
     {
