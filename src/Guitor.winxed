@@ -423,6 +423,12 @@ class Display
     {
         return int(getfun("XGetSelectionOwner")(self.xdisplay, selection));
     }
+    function _ConvertSelection(int selection, int target, int property,
+            int requestor, int time)
+    {
+        getfun("XConvertSelection")(self.xdisplay, selection, target,
+                    property, requestor, time);
+    }
     function ConvertSelection(int selection, int target, int property,
             requestor, int time)
     {
@@ -1682,10 +1688,18 @@ class Window : Drawable
 
     function SetSelectionOwner(int selection, int time)
     {
-        self.display._SetSelectionOwner(selection, self.xdrawable, time);
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None)
+            self.display._SetSelectionOwner(selection, xdrawable, time);
     }
-
-    // Convenience methods that just dispatch to the display of this window
+    function ConvertSelection(int selection, int target, int property,
+            int time)
+    {
+        int xdrawable = self.xdrawable;
+        if (xdrawable != None)
+            self.display._ConvertSelection(selection, target, property,
+                    xdrawable, time);
+    }
     function InternAtom(string name, int only_if_exists[optional])
     {
         return self.display.InternAtom(name, only_if_exists);
