@@ -153,7 +153,7 @@ class SelectedText
 
 //**************************************************************
 
-class AlertWindow : TopLevelWindow
+class AlertWindow : DialogWindow
 {
     var text;
     var ascent;
@@ -181,13 +181,8 @@ class AlertWindow : TopLevelWindow
         self.ascent = ascent;
         self.lineheight = lineheight;
         self.height = height;
-        self.TopLevelWindow(parent.controller,
-                "Pokedit alert", 0, 0, width, height + lineheight * 3);
-        self.SetTransientFor(parent);
-        display.ChangePropertyInt32(self.getDID(),
-                self.InternAtom(NET_WM_WINDOW_TYPE_s),
-                XA_ATOM, PropModeReplace,
-                self.InternAtom(NET_WM_WINDOW_TYPE_DIALOG_s));
+        self.DialogWindow(parent, "Pokedit alert",
+                0, 0, width, height + lineheight * 3);
         var fgcolor = parent.display.ParseColor("black");
         self.SetForeground(fgcolor);
         var bgcolor = parent.display.ParseColor("white");
@@ -202,6 +197,7 @@ class AlertWindow : TopLevelWindow
         self.SetWMProtocols([ WM_DELETE_WINDOW_s ]);
         self.OnClientMessage += eventhandler(self, "onclientmessage");
         self.OnExpose        += eventhandler(self, "onexpose");
+        self.OnKeyPress      += eventhandler(self, "onkeypress");
     }
     function setfocus()
     {
@@ -219,6 +215,18 @@ class AlertWindow : TopLevelWindow
         int marginleft = self.marginleft;
         for (int i = 0, n = elements(text); i < n; ++i)
             self.DrawImageString(marginleft, i * lineheight + ascent, text[i]);
+    }
+    function onkeypress(event)
+    {
+        string key = self.LookupString(event);
+        switch (key) {
+          case "\r":
+          case "\n":
+          case "\e":
+            self.Destroy();
+          default:
+	    ; // Nothing
+        }
     }
 }
 
@@ -780,6 +788,8 @@ class TextWindow : ChildWindow
     }
     function onbuttonpress(event)
     {
+        if (self.parent.waiting())
+            return;
         int curpos, curline;
         switch (event.button()) {
           case 1:
@@ -1450,7 +1460,7 @@ class PokeditWindow : TopLevelWindow
     var textwindow;
     var statuswindow;
     var dialogwindow;
-    var alertwindow;
+    var dialogactive;
     var filename;
     function PokeditWindow(controller)
     {
@@ -1513,6 +1523,10 @@ class PokeditWindow : TopLevelWindow
     {
         return int(self.id);
     }
+    function waiting()
+    {
+        return self.dialogactive != null;
+    }
     function configuresubwindows()
     {
         int width = self.width;
@@ -1567,9 +1581,9 @@ class PokeditWindow : TopLevelWindow
                 self.controller.pushaction(method_fun(self, "close"));
                 break;
               case WM_TAKE_FOCUS_s:
-                var alertwindow = self.alertwindow;
-                if (alertwindow != null) {
-                    alertwindow.setfocus();
+                var dialogactive = self.dialogactive;
+                if (dialogactive != null) {
+                    dialogactive.setfocus();
                     break;
                 }
                 var dialogwindow = self.dialogwindow;
@@ -1753,8 +1767,8 @@ class PokeditWindow : TopLevelWindow
     function alert(string message)
     {
         var alertw = new AlertWindow(self, message);
-        self.alertwindow = alertw;
-        alertw.OnDestroy += function (event) { self.alertwindow = null; };
+        self.dialogactive = alertw;
+        alertw.OnDestroy += function (event) { self.dialogactive = null; };
         alertw.Map();
     }
 }
