@@ -1976,6 +1976,22 @@ class TopLevelWindow : ListenerWindow
     }
 }
 
+class DialogWindow : TopLevelWindow
+{
+    function DialogWindow(mainwindow, title,
+            int x, int y, int width, int height,
+            style[optional])
+    {
+        self.TopLevelWindow(mainwindow.controller, title,
+                x, y, width, height, style);
+        self.SetTransientFor(mainwindow);
+        self.display.ChangePropertyInt32(self.getDID(),
+                self.InternAtom("_NET_WM_WINDOW_TYPE"),
+                XA_ATOM, PropModeReplace,
+                self.InternAtom("_NET_WM_WINDOW_TYPE_DIALOG"));
+    }
+}
+
 class ChildWindow : ListenerWindow
 {
     function ChildWindow(parent, int x, int y, int width, int height,
