@@ -132,6 +132,7 @@ class Puzzle : TopLevelWindow
         self.menu = menu;
 
         self.OnButtonPress += function (event) { self.onbuttonpress(event); };
+        self.OnKeyPress += function (event) { self.onkeypress(event); };
         var grid = [];
         for (int i = 0; i < VER; ++i) {
             int row[HOR];
@@ -154,6 +155,45 @@ class Puzzle : TopLevelWindow
     {
         if (event.button() == 3)
             self.menu.activate_from(self, event);
+    }
+    function onkeypress(event)
+    {
+        var grid = self.grid;
+        int x, y;
+        for (y = 0; y < VER; ++y) {
+            for (x = 0; x < HOR; ++x) {
+                if (int(grid[y, x]) == 0)
+                    break;
+            }
+            if (x < HOR)
+                break;
+        }
+        int x1 = x, y1 = y;
+        string key = event.keyname();
+        switch (key) {
+          case "Left":
+            if (x < HOR - 1)
+                x1 = x + 1;
+            break;
+          case "Right":
+            if (x > 0)
+                x1 = x - 1;
+            break;
+          case "Up":
+            if (y < VER - 1)
+                y1 = y + 1;
+            break;
+          case "Down":
+            if (y > 0)
+                y1 = y - 1;
+            break;
+        }
+        if (x != x1 || y != y1) {
+            int n = grid[y1, x1];
+            self.move(n, x, y);
+            grid[y, x] = n;
+            grid[y1, x1] = 0;
+        }
     }
     function childpress(event)
     {
