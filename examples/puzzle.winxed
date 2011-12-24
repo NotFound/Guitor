@@ -237,7 +237,7 @@ class Puzzle : TopLevelWindow
             if (dest[0] == 0 || dest[1] == 0)
                 i = 2;
             p = dest[i];
-            dest[0] = dest[i + 1];
+            dest[i] = dest[i + 1];
             dest[i + 1] = p;
         }
 
