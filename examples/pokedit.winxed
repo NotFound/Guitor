@@ -54,6 +54,7 @@ const string
 const string 
     CTRL_A = "\x{1}",
     CTRL_C = "\x{3}",
+    CTRL_F = "\x{6}",
     CTRL_N = "\x{E}",
     CTRL_Q = "\x{11}",
     CTRL_S = "\x{13}",
@@ -199,9 +200,9 @@ class AlertWindow : DialogWindow
         self.OnExpose        += eventhandler(self, "onexpose");
         self.OnKeyPress      += eventhandler(self, "onkeypress");
     }
-    function setfocus()
+    function setfocus(int revert)
     {
-        self.SetInputFocus(RevertToParent);
+        self.SetInputFocus(revert);
     }
     function onclientmessage(event)
     {
@@ -227,6 +228,112 @@ class AlertWindow : DialogWindow
           default:
             ; // Nothing
         }
+    }
+}
+
+//**************************************************************
+
+class FindTool : DialogWindow
+{
+    var parent;
+    var ascent;
+    var lineheight;
+    var margin;
+    var edit;
+    var buttonfind;
+    var buttonclose;
+    function FindTool(parent)
+    {
+        self.parent = parent;
+        var font = parent.getdialogfont();
+        int ascent = font.getAscent();
+        int lineheight = ascent + font.getDescent();
+        self.ascent = ascent;
+        self.lineheight = lineheight;
+        int width = 400;
+        int height = lineheight * 4;
+        self.DialogWindow(parent, "Find - Pokedit",
+                0, 0, width, height);
+        self.SetFont(font);
+        int margin = self.getTextxOff("M");
+        self.margin = margin;
+
+        var edit = new EditBox(self, margin, lineheight + 2, width - margin * 2, 0, font);
+        self.edit = edit;
+
+        var buttonfind = new TextButton(self, margin, lineheight * 2 + 8,
+                0, 0, "Find", font);
+        int bwidth = buttonfind.getwidth();
+        buttonfind.OnClick += method_fun(self, "find");
+        self.buttonfind = buttonfind;
+
+        var buttonclose = new TextButton(self,
+                margin * 2 + bwidth, lineheight * 2 + 8,
+                0, 0, "Close", font);
+        buttonclose.OnClick += method_fun(self, "close");
+        self.buttonclose = buttonclose;
+
+        edit.Map();
+        buttonfind.Map();
+        buttonclose.Map();
+
+        self.SetWMProtocols([ WM_DELETE_WINDOW_s ]);
+        self.OnClientMessage += function (event) { self.close(); };
+        self.OnExpose        += eventhandler(self, "onexpose");
+        self.OnFocusIn       += eventhandler(self, "onfocusin");
+
+        edit.OnKeyPress      += eventhandler(self, "onkeypress");
+    }
+    function onexpose(event)
+    {
+        int ascent = self.ascent;
+        int lineheight = self.lineheight;
+        self.DrawImageString(self.margin, ascent, "Find text");
+    }
+    function onkeypress(event)
+    {
+        string key = self.LookupString(event);
+        switch (key) {
+          case "\r":
+          case "\n":
+            self.find(event);
+            break;
+          case "\e":
+            self.close(event);
+            break;
+          default:
+            ; // Nothing
+        }
+    }
+    function onfocusin(event)
+    {
+        self.setfocus(self.parent.getDID());
+    }
+    function setfocus(int revert)
+    {
+        if (self.edit != null)
+            self.edit.SetInputFocus(revert);
+    }
+    function find(event)
+    {
+        string text = self.edit.getValue();
+        int r = self.parent.findtext(text);
+    }
+    function close(event[optional])
+    {
+        if (self.edit != null) {
+            self.edit.Destroy();
+            self.edit = null;
+        }
+        if (self.buttonfind != null) {
+            self.buttonfind.Destroy();
+            self.buttonfind = null;
+        }
+        if (self.buttonclose != null) {
+            self.buttonclose.Destroy();
+            self.buttonclose = null;
+        }
+        self.Destroy();
     }
 }
 
@@ -306,11 +413,11 @@ class SaveasWindow : ChildWindow
     {
         return int(self.height);
     }
-    function setfocus()
+    function setfocus(int revert)
     {
         var edit = self.edit;
         if (edit != null)
-            self.edit.SetInputFocus(RevertToParent);
+            self.edit.SetInputFocus(revert);
     }
     function doit(event [optional])
     {
@@ -753,6 +860,9 @@ class TextWindow : ChildWindow
                 return;
               case CTRL_C:
                 self.copyselected(event.time());
+                break;
+              case CTRL_F:
+                self.parent.find();
                 break;
               case CTRL_X:
                 self.cutselected(event.time());
@@ -1447,6 +1557,36 @@ class TextWindow : ChildWindow
         self.text = null;
         self.Destroy();
     }
+    function findtext(string find)
+    {
+        var text = self.text;
+        int nlines = elements(text);
+        int stline = 0;
+        int stpos = 0;
+        var selected = self.selected;
+        if (selected != null && ! selected.isempty()) {
+            :(stline, stpos, int endline, int endpos) =
+                    selected.getordered();
+            ++stpos;
+        }
+        for (int l = stline; l < nlines; ++l) {
+            int p = indexof(text[l], find, stpos);
+            if (p >= 0) {
+                int pend = p + length(find);
+                self.cancelselected();
+                self.selected = selected = new SelectedText(l, p);
+                selected.move(l, pend);
+                self.curpos = pend;
+                self.curline = l;
+                self.adjust();
+                self.drawall();
+                self.invertselection();
+                return true;
+            }
+            stpos = 0;
+        }
+        return false;
+    }
 }
 
 //**************************************************************
@@ -1495,6 +1635,7 @@ class PokeditWindow : TopLevelWindow
         editmenu.push("copy", method_fun(self, "copy") );
         editmenu.push("paste", method_fun(self, "paste") );
         editmenu.push("select all", method_fun(self, "selectall") );
+        editmenu.push("find", method_fun(self, "find") );
         var viewmenu = new Menu(display, menufont);
         viewmenu.push("status", method_fun(self, "togglestatus") );
         var toolsmenu = new Menu(display, menufont);
@@ -1584,12 +1725,12 @@ class PokeditWindow : TopLevelWindow
               case WM_TAKE_FOCUS_s:
                 var dialogactive = self.dialogactive;
                 if (dialogactive != null) {
-                    dialogactive.setfocus();
+                    dialogactive.setfocus(self.getDID());
                     break;
                 }
                 var dialogwindow = self.dialogwindow;
                 if (dialogwindow != null) {
-                    dialogwindow.setfocus();
+                    dialogwindow.setfocus(self.getDID());
                     break;
                 }
                 var textwindow = self.textwindow;
@@ -1666,7 +1807,7 @@ class PokeditWindow : TopLevelWindow
         self.dialogwindow = new SaveasWindow(self, self.width - 2);
         self.configuresubwindows();
         self.dialogwindow.Map();
-        self.dialogwindow.setfocus();
+        self.dialogwindow.setfocus(self.getDID());
     }
     function new()
     {
@@ -1682,6 +1823,13 @@ class PokeditWindow : TopLevelWindow
     }
     function close()
     {
+        var dialogactive = self.dialogactive;
+        if (dialogactive != null) {
+            self.dialogactive = null;
+            dialogactive.close();
+            self.controller.pushaction(method_fun(self, "close"));
+            return;
+        }
         var dialogwindow = self.dialogwindow;
         if (dialogwindow != null) {
             self.dialogwindow = null;
@@ -1750,6 +1898,17 @@ class PokeditWindow : TopLevelWindow
         var textwindow = self.textwindow;
         if (textwindow != null)
             textwindow.selectall(CurrentTime);
+    }
+    function find()
+    {
+        var findtool = new FindTool(self);
+        self.dialogactive = findtool;
+        findtool.OnDestroy += function (event) { self.dialogactive = null; };
+        findtool.Map();
+    }
+    function findtext(string text)
+    {
+        return self.textwindow.findtext(text);
     }
     function indent()
     {
