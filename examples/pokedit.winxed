@@ -166,7 +166,7 @@ class AlertWindow : DialogWindow
         var display = controller.display;
         var text = split("\n", message);
         self.text = text;
-        var font = display.CreateFont("sans-12");
+        var font = parent.getdialogfont();
         int ascent = font.getAscent();
         int lineheight = ascent + font.getDescent();
         int height = lineheight * elements(text);
@@ -225,7 +225,7 @@ class AlertWindow : DialogWindow
           case "\e":
             self.Destroy();
           default:
-	    ; // Nothing
+            ; // Nothing
         }
     }
 }
@@ -240,8 +240,9 @@ class SaveasWindow : ChildWindow
     var edit;
     var bok;
     var bcancel;
-    function SaveasWindow(parent, font, int width)
+    function SaveasWindow(parent, int width)
     {
+        var font = parent.getstatusfont();
         self.parent = parent;
         self.font = font;
         int height = 24;
@@ -349,8 +350,9 @@ class StatusWindow : ChildWindow
     var bgcolor;
     var height;
     var nwidth;
-    function StatusWindow(parent, int x, int y, int width, int height, font)
+    function StatusWindow(parent, int x, int y, int width, int height)
     {
+        var font = parent.getstatusfont();
         self.parent = parent;
         self.fgcolor = parent.display.ParseColor("grey50");
         self.bgcolor = parent.display.ParseColor("grey95");
@@ -417,11 +419,12 @@ class TextWindow : ChildWindow
     var copybuffer;
     var pressed;
 
-    function TextWindow(parent, int x, int y, int width, int height, font)
+    function TextWindow(parent, int x, int y, int width, int height)
     {
         self.parent = parent;
         string text[];
         self.text = text;
+        var font = parent.gettextfont();
         self.textfont = font;
         self.width = width;
         self.height = height;
@@ -1456,7 +1459,7 @@ class PokeditWindow : TopLevelWindow
     var menubarh;
     var menubarw;
     var textfont;
-    var statusfont;
+    var menufont;
     var textwindow;
     var statuswindow;
     var dialogwindow;
@@ -1473,9 +1476,6 @@ class PokeditWindow : TopLevelWindow
         self.TopLevelWindow(controller, "Pokedit", 0, 0, width, height,
                 { "background-color" : bgcolor } );
         var display = self.display;
-        var menufont = display.CreateFont("sans-12");
-        self.textfont = display.CreateFont("mono-10");
-        self.statusfont = display.CreateFont("mono-10");
 
         self.SetWMProtocols( [ WM_DELETE_WINDOW_s, WM_TAKE_FOCUS_s ] );
 
@@ -1483,6 +1483,7 @@ class PokeditWindow : TopLevelWindow
         self.OnMap           += eventhandler(self, "onmap");
         self.OnClientMessage += eventhandler(self, "onclientmessage");
 
+        var menufont = self.getmenufont();
         var menubar = new MenuBar(display, menufont);
         var filemenu = new Menu(display, menufont);
         filemenu.push("new", method_fun(self, "new") );
@@ -1510,11 +1511,11 @@ class PokeditWindow : TopLevelWindow
         self.menubarw = menubarw;
 
         var statuswindow = new StatusWindow(self, 1, height - 24 - 1, 
-                width - 2, 24, self.statusfont);
+                width - 2, 24);
         self.statuswindow = statuswindow;
 
         var textwindow = new TextWindow(self, 1, menubarh + 1,
-                width - 2, height - menubarh - 2 - 24 - 1, self.textfont);
+                width - 2, height - menubarh - 2 - 24 - 1);
         self.textwindow = textwindow;
         self.configuresubwindows();
         menubarw.Map();
@@ -1662,8 +1663,7 @@ class PokeditWindow : TopLevelWindow
     }
     function saveas()
     {
-        self.dialogwindow = new SaveasWindow(self, self.statusfont,
-                self.width - 2);
+        self.dialogwindow = new SaveasWindow(self, self.width - 2);
         self.configuresubwindows();
         self.dialogwindow.Map();
         self.dialogwindow.setfocus();
@@ -1709,8 +1709,7 @@ class PokeditWindow : TopLevelWindow
     {
         var statuswindow = self.statuswindow;
         if (statuswindow == null) {
-            statuswindow = new StatusWindow(self, 1, 1,  1, 1,
-                    self.statusfont);
+            statuswindow = new StatusWindow(self, 1, 1,  1, 1);
             self.statuswindow = statuswindow;
         }
         else {
@@ -1770,6 +1769,34 @@ class PokeditWindow : TopLevelWindow
         self.dialogactive = alertw;
         alertw.OnDestroy += function (event) { self.dialogactive = null; };
         alertw.Map();
+    }
+
+    // Fonts
+
+    const string DEFAULT_TEXT_FONT = "mono-10";
+    const string DEFAULT_MENU_FONT = "sans-12";
+
+    function gettextfont()
+    {
+        var font = self.textfont;
+        if (font == null)
+            self.textfont = font = self.display.CreateFont(DEFAULT_TEXT_FONT);
+        return font;
+    }
+    function getmenufont()
+    {
+        var font = self.menufont;
+        if (font == null)
+            self.menufont = font = self.display.CreateFont(DEFAULT_MENU_FONT);
+        return font;
+    }
+    function getstatusfont()
+    {
+        return self.gettextfont();
+    }
+    function getdialogfont()
+    {
+        return self.getmenufont();
     }
 }
 
