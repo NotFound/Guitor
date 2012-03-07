@@ -2823,7 +2823,7 @@ class Menu
                 GrabModeAsync, GrabModeAsync, None, None, time);
         if (grab != 0) {
             // grab failed, cancel
-            menuWindow.Destroy();
+            menuwindow.Destroy();
         }
     }
     function activate(parent, int x, int y, int time[optional],
