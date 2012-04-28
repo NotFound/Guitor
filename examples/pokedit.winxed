@@ -287,7 +287,6 @@ class FindTool : DialogWindow
     function onexpose(event)
     {
         int ascent = self.ascent;
-        int lineheight = self.lineheight;
         self.DrawImageString(self.margin, ascent, "Find text");
     }
     function onkeypress(event)
@@ -1364,8 +1363,6 @@ class TextWindow : ChildWindow
     }
     function adjust()
     {
-        int height = self.height;
-        int lineheight = self.lineheight;
         int headline = self.headline;
         int maxlines = self.maxlines;
         int lastline = headline + maxlines;
@@ -1393,11 +1390,8 @@ class TextWindow : ChildWindow
     }
     function down()
     {
-        int height = self.height;
-        int lineheight = self.lineheight;
         int headline = self.headline;
-        int nlines = elements(self.text);
-        if (headline < nlines) {
+        if (headline < elements(self.text)) {
             self.scrolldown();
             return true;
         }
@@ -1422,8 +1416,6 @@ class TextWindow : ChildWindow
         int curline = self.curline;
         ++curline;
         self.curline = curline;
-        int height = self.height;
-        int lineheight = self.lineheight;
         int headline = self.headline;
         int maxlines = self.maxlines;
         if (curline >= headline + maxlines) {
